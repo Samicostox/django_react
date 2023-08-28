@@ -16,6 +16,8 @@ class ProcessTextView(APIView):
         serializer = TextSerializer(data=request.data)
         if serializer.is_valid():
             sample_text = serializer.validated_data['sample_text']
+            print(sample_text)
+            print('toto')
 
             # Your first code snippet for extracting emails and mixed info
             raw_blocks = sample_text.strip().split("\n\n")
