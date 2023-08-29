@@ -6,20 +6,55 @@ import csv
 import re
 import spacy
 import io
+import pandas as pd
+import openai
 
 # Load the custom-trained NER model
 output_dir = "./my_custom_ner_model"
 nlp = spacy.load(output_dir)
+
+openai.api_key = "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"
+
+# Specify the model
+model = 'text-davinci-003'
+
+email_template = """
+Hi [name],
+
+I hope this email finds you well!
+
+I was looking at the University of Birmingham's alumni and came across [company]. [personalised paragraph about the company or sector]
+
+I recently graduated from the University of Birmingham, and last year some fellow students and myself created Birmingham Innovation Studio. A student run company, we offer tech and business services all carried out by students. This is a great way for students to apply what they have learned at university while getting a first work experience but also allows us to have a very competitive price. We could also place students in your company if you are not interested in outsourcing.
+
+I would love to get on call with you guys to see if there is any way we could help you out with our services! Let me know if you would be free this week to discuss this potential collaboration.
+
+Please find attached our Pitchbook to learn more about us!
+
+Best,
+Sami Ribardiere
+"""
+
+# Function to personalize email
+def personalize_email(mixed_info, email_template):
+    prompt = f"Based on these informations : {mixed_info}, please fill the [] in following email: {email_template}"
+    response = openai.Completion.create(
+        engine=model,
+        prompt=prompt,
+        max_tokens=500
+    )
+    personalized_email = response.choices[0].text.strip()
+    print(f"Personalized email for {mixed_info}:\n{personalized_email}\n")
+    return personalized_email
 
 class ProcessTextView(APIView):
     def post(self, request):
         serializer = TextSerializer(data=request.data)
         if serializer.is_valid():
             sample_text = serializer.validated_data['sample_text']
-            print(sample_text)
-            print('toto')
+            personalize = serializer.validated_data.get('personalize', False)
 
-            # Your first code snippet for extracting emails and mixed info
+            # Extracting emails and mixed info
             raw_blocks = sample_text.strip().split("\n\n")
             formatted_blocks = []
             for i in range(0, len(raw_blocks), 2):
@@ -41,9 +76,7 @@ class ProcessTextView(APIView):
             for i in range(min(len(email_list), len(mixed_list))):
                 user_list.append({"Mixed": mixed_list[i], "Email": email_list[i]})
 
-            # Your second code snippet for NER
-            output_dir = "./my_custom_ner_model"
-            nlp = spacy.load(output_dir)
+            # NER
             for entry in user_list:
                 mixed = entry.get('Mixed', '')
                 doc = nlp(mixed)
@@ -57,13 +90,23 @@ class ProcessTextView(APIView):
                 entry['PersonNames'] = ", ".join(person_names)
                 entry['Companies'] = ", ".join(companies)
 
+            # Create a DataFrame from the user_list
+            df = pd.DataFrame(user_list)
+
+            # Add a new column for personalized emails
+            if personalize:  # Check if the boolean is True
+                # Add a new column for personalized emails
+                df['Mail'] = df['Mixed'].apply(lambda x: personalize_email(x, email_template))
+                fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames', 'Mail']
+            else:
+                fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames']
+
             # Create CSV in memory
             output = io.StringIO()
-            fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames']
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
-            for entry in user_list:
-                writer.writerow(entry)
+            for index, row in df.iterrows():
+                writer.writerow(row.to_dict())
 
             # Create HTTP response with CSV
             output.seek(0)
