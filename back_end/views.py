@@ -25,6 +25,11 @@ import random
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.authtoken.models import Token
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+import re
+import io
 
 # Load the custom-trained NER model
 output_dir = "./my_custom_ner_model"
@@ -265,3 +270,82 @@ def activate(request, uidb64, token):
         return redirect('some_view')  # Replace with a view name you'd like to redirect to
     else:
         return render(request, 'activation_failed.html')  # Replace with your failed activation template
+    
+
+def ask_gpt_custom(question):
+    model_engine = "ft:gpt-3.5-turbo-0613:personal::7uMHQkkK"  # Replace with your fine-tuned model ID
+    messages = [
+        {"role": "system", "content": "You are a tech specialist and you create functional and non-functional requirements."},
+        {"role": "user", "content": "write me the functional and non functional requirements of the following app :" + question}
+    ]
+    
+   
+
+    # Making API call using the chat completions endpoint
+    response = openai.ChatCompletion.create(
+        model=model_engine,
+        messages=messages,
+        max_tokens=1000
+    )
+
+    answer = response['choices'][0]['message']['content']
+    return answer
+
+
+def generate_pdf(buffer, answer):
+    styles = getSampleStyleSheet()
+    bullet_style = ParagraphStyle('Bullet', parent=styles['BodyText'], firstLineIndent=0, leftIndent=36, spaceAfter=0, bulletIndent=0)
+    subheading_style = ParagraphStyle('SubHeading', parent=styles['Heading1'], fontSize=14)
+    main_heading_style = ParagraphStyle('MainHeading', parent=styles['Heading1'], fontSize=18)
+
+    pdf = SimpleDocTemplate(buffer, pagesize=letter)
+
+    # Parse and format the content
+    story = []
+    for line in answer.split('\n'):
+        if line.startswith("1.1") or line.startswith("2.1") or line.startswith("1.2") or line.startswith("2.2"):
+            story.append(Paragraph(line, main_heading_style))
+        elif line.endswith(":"):
+            story.append(Paragraph(line, styles['Heading2']))
+        elif line.startswith("•"):
+            story.append(Paragraph(line, bullet_style))
+        else:
+            story.append(Paragraph(line, styles['BodyText']))
+        story.append(Spacer(1, 12))
+
+    pdf.build(story)
+
+
+class GenerateRequirementsPDF(APIView):
+    def post(self, request):
+        token = request.data.get('token', None)
+        
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+            
+        # Validate the token
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+        
+        serializer = ChatbotQuerySerializer(data=request.data)  # Replace with your actual serializer
+        if serializer.is_valid():
+            question = serializer.validated_data['question']
+            answer = ask_gpt_custom(question)  # Assuming ask_gpt_custom is defined
+
+            # Generate PDF
+            buffer = io.BytesIO()
+            
+            generate_pdf(buffer, answer)  # Here, we're using the `generate_pdf` function
+            
+            pdf_content = buffer.getvalue()
+            buffer.close()
+
+            # Send PDF as HTTP response
+            response = HttpResponse(pdf_content, content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="gpt_custom_response.pdf"'
+            return response
+
+        return Response({"msg": "Invalid data"})
