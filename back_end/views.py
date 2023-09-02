@@ -1,19 +1,38 @@
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import HttpResponse
-from .serializers import TextSerializer
+
+from back_end.models import User
+from .serializers import ChatbotQuerySerializer, TextSerializer, UserSerializer
 import csv
 import re
 import spacy
 import io
 import pandas as pd
 import openai
+from django.contrib.sites.shortcuts import get_current_site
+from django.core.mail import send_mail
+from django.contrib.auth import get_user_model, authenticate
+from rest_framework.authtoken.models import Token
+from rest_framework import status
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
+from django.contrib.auth import get_user_model
+from django.shortcuts import render, redirect
+import random
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.authtoken.models import Token
 
 # Load the custom-trained NER model
 output_dir = "./my_custom_ner_model"
 nlp = spacy.load(output_dir)
 
 openai.api_key = "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"
+
+
 
 # Specify the model
 model = 'text-davinci-003'
@@ -46,6 +65,23 @@ def personalize_email(mixed_info, email_template):
     personalized_email = response.choices[0].text.strip()
     print(f"Personalized email for {mixed_info}:\n{personalized_email}\n")
     return personalized_email
+
+
+def ask_gpt4(question):
+    model_engine = "gpt-4"  # Replace with the actual GPT-4 engine ID when it becomes available
+    messages = [
+        {"role": "system", "content": "You are a code generator specialised in ORDA programming language by 4D. You only generate code"},
+        {"role": "user", "content": question}
+    ]
+    
+    response = openai.ChatCompletion.create(
+        model=model_engine,
+        messages=messages
+    )
+    
+    answer = response['choices'][0]['message']['content']
+    return answer
+
 
 class ProcessTextView(APIView):
     def post(self, request):
@@ -115,3 +151,117 @@ class ProcessTextView(APIView):
             return response
 
         return Response({"msg": "Invalid data"})
+    
+
+
+class AskChatbotView(APIView):
+    def post(self, request):
+        # Manually get token from the JSON body
+        token = request.data.get('token', None)
+        
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+            
+        # Validate the token
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+            
+        # Your existing code
+        serializer = ChatbotQuerySerializer(data=request.data)
+        if serializer.is_valid():
+            question = serializer.validated_data['question']
+            answer = ask_gpt4(question)  # Assuming `ask_gpt4` is defined elsewhere
+            return Response({"answer": answer})
+        
+        return Response({"msg": "Invalid data"})
+
+    
+# Generate a random 6-digit verification code
+
+
+class SignUpView(APIView):
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            user.set_password(serializer.validated_data['password'])
+            
+            # Generate a 6-digit code
+            verification_code = str(random.randint(100000, 999999))
+            user.email_verification_code = verification_code
+            user.save()
+            
+            # Send email
+            mail_subject = 'Activate your account.'
+            message = f'Your verification code is: {verification_code}'
+            send_mail(mail_subject, message, 'from_email', [user.email])
+            
+            return Response({"msg": "Successfully signed up! Please check your email for the verification code"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyEmailCode(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        
+        try:
+            user = User.objects.get(email=email)  # Replace CustomUser with your actual User model
+            if user.email_verification_code == code:
+                user.isemailvalid = True  # Assuming you have this field to keep track of email verification status
+                user.email_verification_code = None  # Clear the code
+                user.save()
+                return Response({"msg": "Successfully verified email"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"msg": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:  # Replace CustomUser with your actual User model
+            return Response({"msg": "Invalid email"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class LoginView(APIView):
+    def post(self, request):
+        user = authenticate(email=request.data['email'], password=request.data['password'])
+        if user:
+            if user.isemailvalid:
+                token, created = Token.objects.get_or_create(user=user)  # This will get the token if it exists, otherwise it will create one.
+                return Response({"msg": "Successfully logged in!", "token": token.key}, status=status.HTTP_200_OK)
+            else:
+                return Response({"msg": "Please verify your email first"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class VerifyEmail(APIView):
+    def get(self, request, token):
+        try:
+            token_obj = Token.objects.get(key=token)
+            user = token_obj.user   
+            if not user.isemailvalid:
+                user.isemailvalid = True
+                user.save()
+            return Response({"msg": "Successfully verified email"}, status=status.HTTP_200_OK)
+        except:
+            return Response({"msg": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+def activate(request, uidb64, token):
+    User = get_user_model()
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        # Activate the user
+        user.is_active = True
+        user.save()
+        # Maybe log the user in
+        # Do additional things like sending a welcome email
+        return redirect('some_view')  # Replace with a view name you'd like to redirect to
+    else:
+        return render(request, 'activation_failed.html')  # Replace with your failed activation template
