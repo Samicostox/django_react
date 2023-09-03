@@ -379,7 +379,7 @@ class GenerateRequirementsPDF(APIView):
             title = Paragraph(user_title, styles['Center'])
             spacer_small = Spacer(1, 0.2*inch)
             technical_document_text = Paragraph("Technical Document", styles['NormalCenter'])
-            image_path = "C:\\Users\\Sami\\react_backend\\back_end\\Icon-maskable-192 (2).png" if user_university == '1' else "C:\\Users\\Sami\\react_backend\\back_end\\elephant.png"
+            image_path = "./back_end/Icon-maskable-192 (2).png" if user_university == '1' else "./back_end/elephant.png"
             image = Image(image_path, width=6*inch, height=6*inch)
             project_presented_by_text = Paragraph(
                 "A project presented by Birmingham Innovation Studio" if user_university == '1' else "A project presented by Warwick Innovation Studio",
