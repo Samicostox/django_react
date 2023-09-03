@@ -365,9 +365,13 @@ class GenerateRequirementsPDF(APIView):
                 bottomMargin=18
             )
             styles = getSampleStyleSheet()
+
             
-            pdfmetrics.registerFont(TTFont('SomeFont', 'C:\\Users\\Sami\\react_backend\\back_end\\fonts\\cmu.bright-roman.ttf'))
-            pdfmetrics.registerFont(TTFont('SomeFont2', 'C:\\Users\\Sami\\react_backend\\back_end\\fonts\\cmu.sans-serif-medium.ttf'))
+                
+
+            pdfmetrics.registerFont(TTFont('SomeFont', './back_end/fonts/cmu.bright-roman.ttf'))
+            pdfmetrics.registerFont(TTFont('SomeFont2', './back_end/fonts/cmu.sans-serif-medium.ttf'))
+
 
             styles.add(ParagraphStyle(name='Center', alignment=1, fontSize=24, spaceAfter=20, fontName='SomeFont2'))
             styles.add(ParagraphStyle(name='NormalCenter', alignment=1, fontSize=16, spaceAfter=10, fontName='SomeFont'))

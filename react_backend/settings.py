@@ -137,6 +137,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'back_end.User'
 
+FONT_DIR = os.path.join(BASE_DIR, 'fonts')
+
 # Email settings
 EMAIL_USE_TLS=True
 EMAIL_HOST = 'smtp.gmail.com'
