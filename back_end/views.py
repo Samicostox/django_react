@@ -285,7 +285,7 @@ def ask_gpt_custom(question):
     model_engine = "ft:gpt-3.5-turbo-0613:personal::7uMHQkkK"  # Replace with your fine-tuned model ID
     messages = [
         {"role": "system", "content": "You are a tech specialist and you create functional and non-functional requirements."},
-        {"role": "user", "content": "write me the functional and non functional requirements of the following app :" + question}
+        {"role": "user", "content": "write me the functional and non functional requirements of the following app" + question}
     ]
     
    
@@ -294,7 +294,7 @@ def ask_gpt_custom(question):
     response = openai.ChatCompletion.create(
         model=model_engine,
         messages=messages,
-        max_tokens=1000
+        max_tokens=2000
     )
 
     answer = response['choices'][0]['message']['content']
@@ -331,17 +331,121 @@ def generate_pdf(buffer, answer):
     pdf.build(story)
 
 
+def generate_first_page_pdf(user_title, user_date, user_university):
+    buffer_first_page = io.BytesIO()
+    
+    pdf = SimpleDocTemplate(
+        buffer_first_page,
+        pagesize=letter,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=18
+    )
+    
+    styles = getSampleStyleSheet()
+    pdfmetrics.registerFont(TTFont('SomeFont', './back_end/fonts/cmu.bright-roman.ttf'))
+    pdfmetrics.registerFont(TTFont('SomeFont2', './back_end/fonts/cmu.sans-serif-medium.ttf'))
+
+    styles.add(ParagraphStyle(name='Center', alignment=1, fontSize=24, spaceAfter=20, fontName='SomeFont2'))
+    styles.add(ParagraphStyle(name='NormalCenter', alignment=1, fontSize=16, spaceAfter=10, fontName='SomeFont'))
+
+    title = Paragraph(user_title, styles['Center'])
+    spacer_small = Spacer(1, 0.2*inch)
+    technical_document_text = Paragraph("Technical Document", styles['NormalCenter'])
+    image_path = "./back_end/Icon-maskable-192 (2).png" if user_university == '1' else "./back_end/elephant.png"
+    image = Image(image_path, width=6*inch, height=6*inch)
+    project_presented_by_text = Paragraph(
+        "A project presented by Birmingham Innovation Studio" if user_university == '1' else "A project presented by Warwick Innovation Studio",
+        styles['NormalCenter']
+    )
+    date_text = Paragraph(f"Date: {user_date}", styles['NormalCenter'])
+    elements = [title, spacer_small, technical_document_text, spacer_small, image, spacer_small, project_presented_by_text, spacer_small, date_text]
+    pdf.build(elements)
+    
+    return buffer_first_page
+
+def generate_requirements_pdf(question):
+    buffer_requirements = io.BytesIO()
+    answer = ask_gpt_custom(question)
+    # Assuming generate_pdf is a function you've defined elsewhere
+    generate_pdf(buffer_requirements, answer)
+    
+    return buffer_requirements
+
+def generate_intro_pdf(data,user_university,question):
+    buffer_intro = io.BytesIO()
+    pdf = SimpleDocTemplate(
+        buffer_intro,
+        pagesize=letter,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=18
+    )
+
+    # Style Definitions
+    pdfmetrics.registerFont(TTFont('SomeFont', './back_end/fonts/cmu.bright-roman.ttf'))
+    pdfmetrics.registerFont(TTFont('SomeFont2', './back_end/fonts/cmu.sans-serif-medium.ttf'))
+    pdfmetrics.registerFont(TTFont('SomeFont3', './back_end/fonts/cmu.sans-serif-bold.ttf'))
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='BigHeading', alignment=0, fontSize=24, spaceAfter=40, fontName='SomeFont3'))
+    styles.add(ParagraphStyle(name='SubHeading', alignment=0, fontSize=18, spaceAfter=30, fontName='SomeFont3'))
+    styles['BodyText'].spaceAfter = 12
+    styles['BodyText'].leading = 18  # 1.5-line spacing
+
+    # Elements
+    title = Paragraph("1. Introduction", styles['BigHeading'])
+    sub_heading1 = Paragraph("1.1 Purpose of this document", styles['SubHeading'])
+    sub_heading2 = Paragraph("1.2 Scope", styles['SubHeading'])
+    sub_heading3 = Paragraph("1.3 References", styles['SubHeading'])
+    
+    intro_paragraph_text = ("This document explains the functional specification of {}, "
+                            "the {} project in which {}, engages to fulfill all the requests "
+                            "demanded by {} as explained during elementary meetings and calls."
+                            ).format(data['name_of_project'], data['type_of_project'], 
+                                     "Warwick Innovation Studio" if user_university == '2' else "Birmingham Innovation Studio", 
+                                     data['name_of_client_company'])
+
+    intro_paragraph = Paragraph(intro_paragraph_text, styles['BodyText'])
+
+    para1_text = ("The functional specification document serves the same purpose as a contract. "
+                  "The specifications presented in this document are related to the conversations done by {}. "
+                  "Following this document, the developers agree to provide the capabilities specified "
+                  "and fulfill all requests and demands of {}, who also agreed to find the product "
+                  "satisfactory if it provides the capabilities as specified."
+                  ).format(data['consultant_name'], data['name_of_client_company'])
+
+    para1 = Paragraph(para1_text, styles['BodyText'])
+    
+    para2_text = question
+    para2 = Paragraph(para2_text, styles['BodyText'])
+
+    para3_text = "All meetings, emails and materials exchanges with {}.".format(data['name_of_client_company'])
+    para3 = Paragraph(para3_text, styles['BodyText'])
+
+    spacer_small = Spacer(1, 0.2 * inch)
+    spacer_large = Spacer(1, 0.5 * inch)  # Larger spacer for more space between sections
+
+    # Combine all elements with spacers
+    elements = [title, intro_paragraph, spacer_large, sub_heading1, para1, spacer_large, sub_heading2, para2, spacer_large, sub_heading3, para3]
+    
+    pdf.build(elements)
+    
+    return buffer_intro
+
 class GenerateRequirementsPDF(APIView):
     def post(self, request):
         token = request.data.get('token', None)
         if token is None:
             raise AuthenticationFailed('No token provided')
+
         try:
             auth_token = Token.objects.get(key=token)
             request.user = auth_token.user
         except Token.DoesNotExist:
             raise AuthenticationFailed('Invalid token')
-        
+
         serializer = GeneratePdfSerializer(data=request.data)
         if serializer.is_valid():
             question = serializer.validated_data['question']
@@ -349,71 +453,44 @@ class GenerateRequirementsPDF(APIView):
             user_date = serializer.validated_data.get('date')
             user_university = serializer.validated_data.get('university')
 
-            # Generate requirements PDF
-            buffer_requirements = io.BytesIO()
-            
-            
-            # Create first page PDF
-            buffer_first_page = io.BytesIO()
-           
-            pdf = SimpleDocTemplate(
-                buffer_first_page,
-                pagesize=letter,
-                rightMargin=72,
-                leftMargin=72,
-                topMargin=72,
-                bottomMargin=18
-            )
-            styles = getSampleStyleSheet()
+            buffer_first_page = generate_first_page_pdf(user_title, user_date, user_university)
 
-            
+            intro_data = {
+                'name_of_project': request.data.get('name_of_project'),
+                'type_of_project': request.data.get('type_of_project'),
+                'name_of_client_company': request.data.get('name_of_client_company'),
+                'consultant_name': request.data.get('consultant_name'),
                 
+            }
+            buffer_intro = generate_intro_pdf(intro_data,user_university,question)
 
-            pdfmetrics.registerFont(TTFont('SomeFont', './back_end/fonts/cmu.bright-roman.ttf'))
-            pdfmetrics.registerFont(TTFont('SomeFont2', './back_end/fonts/cmu.sans-serif-medium.ttf'))
+            buffer_requirements = generate_requirements_pdf(question)
 
-
-            styles.add(ParagraphStyle(name='Center', alignment=1, fontSize=24, spaceAfter=20, fontName='SomeFont2'))
-            styles.add(ParagraphStyle(name='NormalCenter', alignment=1, fontSize=16, spaceAfter=10, fontName='SomeFont'))
-
-            title = Paragraph(user_title, styles['Center'])
-            spacer_small = Spacer(1, 0.2*inch)
-            technical_document_text = Paragraph("Technical Document", styles['NormalCenter'])
-            image_path = "./back_end/Icon-maskable-192 (2).png" if user_university == '1' else "./back_end/elephant.png"
-            image = Image(image_path, width=6*inch, height=6*inch)
-            project_presented_by_text = Paragraph(
-                "A project presented by Birmingham Innovation Studio" if user_university == '1' else "A project presented by Warwick Innovation Studio",
-                styles['NormalCenter']
-            )
-            date_text = Paragraph(f"Date: {user_date}", styles['NormalCenter'])
-            elements = [title, spacer_small, technical_document_text, spacer_small, image, spacer_small, project_presented_by_text, spacer_small, date_text]
-            pdf.build(elements)
-
-            answer = ask_gpt_custom(question)
-            generate_pdf(buffer_requirements, answer)
-            
             # Combine PDFs
-            buffer_requirements.seek(0)
             buffer_first_page.seek(0)
-            pdf_reader1 = PdfReader(buffer_requirements)
-            pdf_reader2 = PdfReader(buffer_first_page)
+            buffer_intro.seek(0)
+            buffer_requirements.seek(0)
+            
+            pdf_reader1 = PdfReader(buffer_first_page)
+            pdf_reader2 = PdfReader(buffer_intro)
+            pdf_reader3 = PdfReader(buffer_requirements)
+            
             pdf_writer = PdfWriter()
 
-            # New order of concatenation
-            for i in range(len(pdf_reader2.pages)):
-                pdf_writer.add_page(pdf_reader2.pages[i])
             for i in range(len(pdf_reader1.pages)):
                 pdf_writer.add_page(pdf_reader1.pages[i])
+            for i in range(len(pdf_reader2.pages)):
+                pdf_writer.add_page(pdf_reader2.pages[i])
+            for i in range(len(pdf_reader3.pages)):
+                pdf_writer.add_page(pdf_reader3.pages[i])
 
             final_pdf_buffer = io.BytesIO()
             pdf_writer.write(final_pdf_buffer)
             pdf_content = final_pdf_buffer.getvalue()
             final_pdf_buffer.close()
-            
-            
-            # Send PDF as HTTP response
+
             response = HttpResponse(pdf_content, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
+            
             return response
-
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
