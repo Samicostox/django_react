@@ -1,10 +1,13 @@
 
+import os
+from PyPDF2 import PdfFileReader, PdfFileWriter, PdfReader, PdfWriter
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import HttpResponse
 
 from back_end.models import User
-from .serializers import ChatbotQuerySerializer, TextSerializer, UserSerializer
+from react_backend import settings
+from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UserSerializer
 import csv
 import re
 import spacy
@@ -30,7 +33,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 import re
 import io
-
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, Spacer
+from datetime import datetime
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 # Load the custom-trained NER model
 output_dir = "./my_custom_ner_model"
 nlp = spacy.load(output_dir)
@@ -297,13 +306,19 @@ def generate_pdf(buffer, answer):
     bullet_style = ParagraphStyle('Bullet', parent=styles['BodyText'], firstLineIndent=0, leftIndent=36, spaceAfter=0, bulletIndent=0)
     subheading_style = ParagraphStyle('SubHeading', parent=styles['Heading1'], fontSize=14)
     main_heading_style = ParagraphStyle('MainHeading', parent=styles['Heading1'], fontSize=18)
+    
+    # Create a new style for the biggest title
+    biggest_heading_style = ParagraphStyle('BiggestHeading', parent=styles['Heading1'], fontSize=24)
 
     pdf = SimpleDocTemplate(buffer, pagesize=letter)
 
     # Parse and format the content
     story = []
     for line in answer.split('\n'):
-        if line.startswith("1.1") or line.startswith("2.1") or line.startswith("1.2") or line.startswith("2.2"):
+        if line == "2 Requirements":
+            # Use the biggest_heading_style for this specific line
+            story.append(Paragraph(line, biggest_heading_style))
+        elif line.startswith("1.1") or line.startswith("2.1") or line.startswith("1.2") or line.startswith("2.2"):
             story.append(Paragraph(line, main_heading_style))
         elif line.endswith(":"):
             story.append(Paragraph(line, styles['Heading2']))
@@ -319,33 +334,82 @@ def generate_pdf(buffer, answer):
 class GenerateRequirementsPDF(APIView):
     def post(self, request):
         token = request.data.get('token', None)
-        
         if token is None:
             raise AuthenticationFailed('No token provided')
-            
-        # Validate the token
         try:
             auth_token = Token.objects.get(key=token)
             request.user = auth_token.user
         except Token.DoesNotExist:
             raise AuthenticationFailed('Invalid token')
         
-        serializer = ChatbotQuerySerializer(data=request.data)  # Replace with your actual serializer
+        serializer = GeneratePdfSerializer(data=request.data)
         if serializer.is_valid():
             question = serializer.validated_data['question']
-            answer = ask_gpt_custom(question)  # Assuming ask_gpt_custom is defined
+            user_title = serializer.validated_data.get('title')
+            user_date = serializer.validated_data.get('date')
+            user_university = serializer.validated_data.get('university')
 
-            # Generate PDF
-            buffer = io.BytesIO()
+            # Generate requirements PDF
+            buffer_requirements = io.BytesIO()
             
-            generate_pdf(buffer, answer)  # Here, we're using the `generate_pdf` function
             
-            pdf_content = buffer.getvalue()
-            buffer.close()
+            # Create first page PDF
+            buffer_first_page = io.BytesIO()
+           
+            pdf = SimpleDocTemplate(
+                buffer_first_page,
+                pagesize=letter,
+                rightMargin=72,
+                leftMargin=72,
+                topMargin=72,
+                bottomMargin=18
+            )
+            styles = getSampleStyleSheet()
+            
+            pdfmetrics.registerFont(TTFont('SomeFont', 'C:\\Users\\Sami\\react_backend\\back_end\\fonts\\cmu.bright-roman.ttf'))
+            pdfmetrics.registerFont(TTFont('SomeFont2', 'C:\\Users\\Sami\\react_backend\\back_end\\fonts\\cmu.sans-serif-medium.ttf'))
 
+            styles.add(ParagraphStyle(name='Center', alignment=1, fontSize=24, spaceAfter=20, fontName='SomeFont2'))
+            styles.add(ParagraphStyle(name='NormalCenter', alignment=1, fontSize=16, spaceAfter=10, fontName='SomeFont'))
+
+            title = Paragraph(user_title, styles['Center'])
+            spacer_small = Spacer(1, 0.2*inch)
+            technical_document_text = Paragraph("Technical Document", styles['NormalCenter'])
+            image_path = "C:\\Users\\Sami\\react_backend\\back_end\\Icon-maskable-192 (2).png" if user_university == '1' else "C:\\Users\\Sami\\react_backend\\back_end\\elephant.png"
+            image = Image(image_path, width=6*inch, height=6*inch)
+            project_presented_by_text = Paragraph(
+                "A project presented by Birmingham Innovation Studio" if user_university == '1' else "A project presented by Warwick Innovation Studio",
+                styles['NormalCenter']
+            )
+            date_text = Paragraph(f"Date: {user_date}", styles['NormalCenter'])
+            elements = [title, spacer_small, technical_document_text, spacer_small, image, spacer_small, project_presented_by_text, spacer_small, date_text]
+            pdf.build(elements)
+
+            answer = ask_gpt_custom(question)
+            generate_pdf(buffer_requirements, answer)
+            
+            # Combine PDFs
+            buffer_requirements.seek(0)
+            buffer_first_page.seek(0)
+            pdf_reader1 = PdfReader(buffer_requirements)
+            pdf_reader2 = PdfReader(buffer_first_page)
+            pdf_writer = PdfWriter()
+
+            # New order of concatenation
+            for i in range(len(pdf_reader2.pages)):
+                pdf_writer.add_page(pdf_reader2.pages[i])
+            for i in range(len(pdf_reader1.pages)):
+                pdf_writer.add_page(pdf_reader1.pages[i])
+
+            final_pdf_buffer = io.BytesIO()
+            pdf_writer.write(final_pdf_buffer)
+            pdf_content = final_pdf_buffer.getvalue()
+            final_pdf_buffer.close()
+            
+            
             # Send PDF as HTTP response
             response = HttpResponse(pdf_content, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="gpt_custom_response.pdf"'
+            response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
             return response
 
-        return Response({"msg": "Invalid data"})
+        return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)

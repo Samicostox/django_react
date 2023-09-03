@@ -21,3 +21,10 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'name', 'email', 'password', 'username')
         extra_kwargs = {'password': {'write_only': True}}
+
+class GeneratePdfSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=255, required=True)
+    title = serializers.CharField(max_length=255, required=True)
+    date = serializers.CharField(max_length=255, required=True)
+    university = serializers.ChoiceField(choices=[('1', 'Birmingham'), ('2', 'Warwick')], required=True)
+    question = serializers.CharField()

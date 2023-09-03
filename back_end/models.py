@@ -23,3 +23,6 @@ class User(AbstractUser):
 
 
 
+class University(models.Model):
+    name = models.CharField(max_length=255)
+    
