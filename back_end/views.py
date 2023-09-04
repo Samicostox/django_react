@@ -1,13 +1,16 @@
 
+import math
 import os
+import time
 from PyPDF2 import PdfFileReader, PdfFileWriter, PdfReader, PdfWriter
+import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import HttpResponse
 
 from back_end.models import User
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UserSerializer
+from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
@@ -40,6 +43,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, Spacer
 from datetime import datetime
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+import concurrent.futures
 # Load the custom-trained NER model
 output_dir = "./my_custom_ner_model"
 nlp = spacy.load(output_dir)
@@ -494,3 +498,199 @@ class GenerateRequirementsPDF(APIView):
             
             return response
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+    
+def fetch_venues(api_key, location, radius, keyword):
+    base_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    
+    venues = []
+    params = {
+        "location": location,
+        "radius": radius,
+        "keyword": keyword,
+        "key": api_key
+    }
+
+    while True:
+        response = requests.get(base_url, params=params)
+
+        if response.status_code == 200:
+            results = response.json()
+            venues.extend(results.get('results', []))
+
+            next_page_token = results.get('next_page_token')
+            if next_page_token:
+                params['pagetoken'] = next_page_token
+                time.sleep(5)
+            else:
+                break
+        else:
+            break
+
+    return venues
+
+def fetch_place_details(api_key, place_id):
+    base_url = "https://maps.googleapis.com/maps/api/place/details/json"
+    
+    params = {
+        "place_id": place_id,
+        "fields": "formatted_phone_number,international_phone_number,website,opening_hours,types",
+        "key": api_key
+    }
+
+    response = requests.get(base_url, params=params)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None
+
+
+def get_offsets(city_latitude, distance_km=3):
+    # Convert latitude from degrees to radians
+    lat_rad = math.radians(city_latitude)
+
+    # Calculate the offsets in degrees
+    offset_in_degrees_lat = distance_km / 111
+    offset_in_degrees_lng = distance_km / (111 * math.cos(lat_rad))
+
+    # Define number of rows and columns for the grid
+    rows = 4
+    columns = 5
+
+    # Half of rows and columns to center the grid
+    half_rows = rows // 2
+    half_columns = columns // 2
+
+    # Create a grid of offsets
+    offsets_lat = [i * offset_in_degrees_lat for i in range(-half_rows, half_rows + 1)]
+    offsets_lng = [i * offset_in_degrees_lng for i in range(-half_columns, half_columns + 1)]
+
+    return offsets_lat, offsets_lng
+
+
+def get_city_coordinates(api_key, city_name):
+    base_url = "https://maps.googleapis.com/maps/api/geocode/json"
+    
+    params = {
+        "address": city_name,
+        "key": api_key
+    }
+    
+    response = requests.get(base_url, params=params)
+    
+    if response.status_code == 200:
+        results = response.json()
+        # Check if results list is not empty
+        if results['results']:
+            location = results['results'][0]['geometry']['location']
+            lat, lng = location['lat'], location['lng']
+            return lat, lng
+        else:
+            print("No results found for the given city name.")
+            return None, None
+    else:
+        print("Error fetching data from API")
+        return None, None
+
+
+class FetchVenuesView(APIView):
+    def post(self, request):
+        serializer = VenueFetchSerializer(data=request.data)
+
+        if serializer.is_valid():
+            city_name = serializer.validated_data['city_name']
+            api_key = serializer.validated_data['api_key']
+            token = serializer.validated_data['token']
+            keyword = serializer.validated_data['keyword']
+            csv_file_name = serializer.validated_data['csv_file_name']
+
+            try:
+                # Here goes your original script, adapted to work within this function
+                lat, lng = get_city_coordinates(api_key, city_name)
+                offsets_lat, offsets_lng = get_offsets(lat, 3)
+
+                locations = [(lat + offset_lat, lng + offset_lng)
+                             for offset_lat in offsets_lat
+                             for offset_lng in offsets_lng][:20]
+                locations = [f"{lat},{lng}" for lat, lng in locations]
+                
+                radius = "2000"
+
+                all_venues = []
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_location = {executor.submit(fetch_venues, api_key, location, radius, keyword): location for location in locations}
+                    for future in concurrent.futures.as_completed(future_to_location):
+                        all_venues.extend(future.result())
+
+                venues = []
+                for result in all_venues:
+                    name = result.get('name')
+                    address = result.get('vicinity')
+                    place_id = result.get('place_id')
+                    details = fetch_place_details(api_key, place_id)
+
+                    if details:
+                        phone_number = details['result'].get('formatted_phone_number', 'Not Available')
+                        website = details['result'].get('website', 'Not Available')
+                        types_list = details['result'].get('types', ['Not Available'])
+                        main_type = types_list[0] if types_list else 'Not Available'
+                        opening_hours = details['result'].get('opening_hours', {}).get('weekday_text', ['Not Available']*7)
+
+                        venues.append({
+                            'name': name,
+                            'address': address,
+                            'phone_number': phone_number,
+                            'website': website,
+                            'type': main_type,
+                            'Monday': opening_hours[0],
+                            'Tuesday': opening_hours[1],
+                            'Wednesday': opening_hours[2],
+                            'Thursday': opening_hours[3],
+                            'Friday': opening_hours[4],
+                            'Saturday': opening_hours[5],
+                            'Sunday': opening_hours[6]
+                        })
+                    else:
+                        venues.append({
+                            'name': name,
+                            'address': address,
+                            'phone_number': 'Not Available',
+                            'website': 'Not Available',
+                            'type': 'Not Available',
+                            'Monday': 'Not Available',
+                            'Tuesday': 'Not Available',
+                            'Wednesday': 'Not Available',
+                            'Thursday': 'Not Available',
+                            'Friday': 'Not Available',
+                            'Saturday': 'Not Available',
+                            'Sunday': 'Not Available'
+                        })
+
+                   
+
+                df = pd.DataFrame(venues)
+                df = df.drop_duplicates()
+
+                # Create CSV in memory
+                output = io.StringIO()
+                fieldnames = list(df.columns)
+                writer = csv.DictWriter(output, fieldnames=fieldnames)
+                writer.writeheader()
+                for index, row in df.iterrows():
+                    writer.writerow(row.to_dict())
+
+                # Create HTTP response with CSV
+                output.seek(0)
+                response = HttpResponse(output, content_type='text/csv')
+                response['Content-Disposition'] = f'attachment; filename="{csv_file_name}.csv"'
+                
+                return response
+                
+            except Exception as e:
+                return Response({"msg": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        else:
+            return Response({"msg": "Invalid input", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+

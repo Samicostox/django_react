@@ -14,5 +14,6 @@ urlpatterns = [
      path('activate/<slug:uidb64>/<slug:token>/', views.activate, name='activate'),
      path('verify-email-code/', views.VerifyEmailCode.as_view(), name='verify-email-code'),
      path('generate_requirements_pdf/', views.GenerateRequirementsPDF.as_view(), name='generate_requirements_pdf'),
+     path('fetch_venues/', views.FetchVenuesView.as_view(), name='fetch_venues'),
     
 ]

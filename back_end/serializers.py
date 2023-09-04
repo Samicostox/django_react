@@ -28,3 +28,11 @@ class GeneratePdfSerializer(serializers.Serializer):
     date = serializers.CharField(max_length=255, required=True)
     university = serializers.ChoiceField(choices=[('1', 'Birmingham'), ('2', 'Warwick')], required=True)
     question = serializers.CharField()
+
+
+class VenueFetchSerializer(serializers.Serializer):
+    city_name = serializers.CharField(max_length=100)
+    api_key = serializers.CharField(max_length=100)
+    token = serializers.CharField(max_length=100)  # Assuming the token is a simple string
+    keyword = serializers.CharField(max_length=100)
+    csv_file_name = serializers.CharField(max_length=100)
