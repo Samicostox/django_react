@@ -595,6 +595,8 @@ def get_city_coordinates(api_key, city_name):
 
 class FetchVenuesView(APIView):
     def post(self, request):
+        print("Received POST request")
+        print(request.data)
         serializer = VenueFetchSerializer(data=request.data)
 
         if serializer.is_valid():
@@ -607,6 +609,9 @@ class FetchVenuesView(APIView):
             try:
                 # Here goes your original script, adapted to work within this function
                 lat, lng = get_city_coordinates(api_key, city_name)
+                if lat is None and lng is None:
+                    return Response({"msg": "Invalid API key"}, status=status.HTTP_400_BAD_REQUEST)
+                
                 offsets_lat, offsets_lng = get_offsets(lat, 3)
 
                 locations = [(lat + offset_lat, lng + offset_lng)
