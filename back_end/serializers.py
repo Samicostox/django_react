@@ -17,10 +17,16 @@ class ChatbotQuerySerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_picture = serializers.SerializerMethodField()
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'password', 'username')
+        fields = ('id', 'name', 'email', 'password', 'username', 'profile_picture')
         extra_kwargs = {'password': {'write_only': True}}
+
+    def get_profile_picture(self, obj):
+        if obj.profile_picture:
+            return f"https://djangoback-705982cd1fda.herokuapp.com{obj.profile_picture.url}"
+        return None
 
 class GeneratePdfSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=255, required=True)

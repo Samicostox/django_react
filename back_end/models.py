@@ -15,9 +15,11 @@ class User(AbstractUser):
     username = models.CharField(max_length=255)
     isemailvalid = models.BooleanField(default = False)
     email_verification_code = models.CharField(max_length=6, blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profile_pics/', null=True, blank=True,default="profile_pics/PHOTO-2023-09-04-11-14-23_vEOc0v8.jpg")  # New field
+
     
-
-
+    
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 

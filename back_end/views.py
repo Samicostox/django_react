@@ -201,24 +201,30 @@ class AskChatbotView(APIView):
 
 
 class SignUpView(APIView):
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            user.set_password(serializer.validated_data['password'])
-            
-            # Generate a 6-digit code
-            verification_code = str(random.randint(100000, 999999))
-            user.email_verification_code = verification_code
-            user.save()
-            
-            # Send email
-            mail_subject = 'Activate your account.'
-            message = f'Your verification code is: {verification_code}'
-            send_mail(mail_subject, message, 'from_email', [user.email])
-            
-            return Response({"msg": "Successfully signed up! Please check your email for the verification code"}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+   def post(self, request):
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        user.set_password(serializer.validated_data['password'])
+        
+        # Generate a 6-digit code
+        verification_code = str(random.randint(100000, 999999))
+        user.email_verification_code = verification_code
+
+        # Handle profile picture (if provided)
+        image_file = request.FILES.get('profile_picture', None)  # Replace 'profile_picture' with the field name in your frontend form
+        if image_file:
+            user.profile_picture = image_file
+
+        user.save()
+        
+        # Send email
+        mail_subject = 'Activate your account.'
+        message = f'Your verification code is: {verification_code}'
+        send_mail(mail_subject, message, 'from_email', [user.email])
+        
+        return Response({"msg": "Successfully signed up! Please check your email for the verification code"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class VerifyEmailCode(APIView):
     def post(self, request):
@@ -262,6 +268,24 @@ class VerifyEmail(APIView):
             return Response({"msg": "Successfully verified email"}, status=status.HTTP_200_OK)
         except:
             return Response({"msg": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+
+class RetrieveUserInfo(APIView):
+    
+    def post(self, request, *args, **kwargs):
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+        
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+        
+        user = request.user
+        user_serializer = UserSerializer(user)
+        
+        return Response(user_serializer.data, status=status.HTTP_200_OK)
 
 
 
