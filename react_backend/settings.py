@@ -139,6 +139,23 @@ AUTH_USER_MODEL = 'back_end.User'
 
 FONT_DIR = os.path.join(BASE_DIR, 'fonts')
 
+# settings.py
+from celery import Celery
+from urllib.parse import urlparse
+
+
+app = Celery('react_backend')
+
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+parsed_url = urlparse(redis_url)
+
+app.config_from_object('django.conf:settings', namespace='CELERY')
+app.autodiscover_tasks()
+
+app.conf.broker_url = redis_url
+app.conf.broker_transport_options = {'visibility_timeout': 3600}
+
+
 # Email settings
 EMAIL_USE_TLS=True
 EMAIL_HOST = 'smtp.gmail.com'

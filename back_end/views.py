@@ -528,6 +528,8 @@ def fetch_venues(api_key, location, radius, keyword):
 
     return venues
 
+
+
 def fetch_place_details(api_key, place_id):
     base_url = "https://maps.googleapis.com/maps/api/place/details/json"
     
@@ -591,6 +593,104 @@ def get_city_coordinates(api_key, city_name):
     else:
         print("Error fetching data from API")
         return None, None
+    
+
+from celery import shared_task
+import requests
+import pandas as pd
+import csv
+import io
+import concurrent.futures
+
+# Assuming the other functions you've mentioned are imported here as well
+from .views import fetch_venues, fetch_place_details, get_offsets, get_city_coordinates
+
+@shared_task
+def fetch_and_process_data(api_key, city_name, token, keyword, csv_file_name):
+    try:
+        lat, lng = get_city_coordinates(api_key, city_name)
+        if lat is None and lng is None:
+            return "Invalid API key"
+        
+        offsets_lat, offsets_lng = get_offsets(lat, 3)
+
+        locations = [(lat + offset_lat, lng + offset_lng)
+                     for offset_lat in offsets_lat
+                     for offset_lng in offsets_lng][:20]
+        locations = [f"{lat},{lng}" for lat, lng in locations]
+        
+        radius = "2000"
+
+        all_venues = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_location = {executor.submit(fetch_venues, api_key, location, radius, keyword): location for location in locations}
+            for future in concurrent.futures.as_completed(future_to_location):
+                all_venues.extend(future.result())
+
+        venues = []
+        for result in all_venues:
+            name = result.get('name')
+            address = result.get('vicinity')
+            place_id = result.get('place_id')
+            details = fetch_place_details(api_key, place_id)
+
+            if details:
+                phone_number = details['result'].get('formatted_phone_number', 'Not Available')
+                website = details['result'].get('website', 'Not Available')
+                types_list = details['result'].get('types', ['Not Available'])
+                main_type = types_list[0] if types_list else 'Not Available'
+                opening_hours = details['result'].get('opening_hours', {}).get('weekday_text', ['Not Available']*7)
+
+                venues.append({
+                    'name': name,
+                    'address': address,
+                    'phone_number': phone_number,
+                    'website': website,
+                    'type': main_type,
+                    'Monday': opening_hours[0],
+                    'Tuesday': opening_hours[1],
+                    'Wednesday': opening_hours[2],
+                    'Thursday': opening_hours[3],
+                    'Friday': opening_hours[4],
+                    'Saturday': opening_hours[5],
+                    'Sunday': opening_hours[6]
+                })
+            else:
+                venues.append({
+                    'name': name,
+                    'address': address,
+                    'phone_number': 'Not Available',
+                    'website': 'Not Available',
+                    'type': 'Not Available',
+                    'Monday': 'Not Available',
+                    'Tuesday': 'Not Available',
+                    'Wednesday': 'Not Available',
+                    'Thursday': 'Not Available',
+                    'Friday': 'Not Available',
+                    'Saturday': 'Not Available',
+                    'Sunday': 'Not Available'
+                })
+
+        df = pd.DataFrame(venues)
+        df = df.drop_duplicates()
+
+        output = io.StringIO()
+        fieldnames = list(df.columns)
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        for index, row in df.iterrows():
+            writer.writerow(row.to_dict())
+
+        output.seek(0)
+        
+        with open(f"{csv_file_name}.csv", "w", newline='') as f:
+            f.write(output.getvalue())
+
+        return "Data successfully fetched and processed"
+
+    except Exception as e:
+        return str(e)
+
 
 
 class FetchVenuesView(APIView):
@@ -606,96 +706,8 @@ class FetchVenuesView(APIView):
             keyword = serializer.validated_data['keyword']
             csv_file_name = serializer.validated_data['csv_file_name']
 
-            try:
-                # Here goes your original script, adapted to work within this function
-                lat, lng = get_city_coordinates(api_key, city_name)
-                if lat is None and lng is None:
-                    return Response({"msg": "Invalid API key"}, status=status.HTTP_400_BAD_REQUEST)
-                
-                offsets_lat, offsets_lng = get_offsets(lat, 3)
-
-                locations = [(lat + offset_lat, lng + offset_lng)
-                             for offset_lat in offsets_lat
-                             for offset_lng in offsets_lng][:20]
-                locations = [f"{lat},{lng}" for lat, lng in locations]
-                
-                radius = "2000"
-
-                all_venues = []
-                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-                    future_to_location = {executor.submit(fetch_venues, api_key, location, radius, keyword): location for location in locations}
-                    for future in concurrent.futures.as_completed(future_to_location):
-                        all_venues.extend(future.result())
-
-                venues = []
-                for result in all_venues:
-                    name = result.get('name')
-                    address = result.get('vicinity')
-                    place_id = result.get('place_id')
-                    details = fetch_place_details(api_key, place_id)
-
-                    if details:
-                        phone_number = details['result'].get('formatted_phone_number', 'Not Available')
-                        website = details['result'].get('website', 'Not Available')
-                        types_list = details['result'].get('types', ['Not Available'])
-                        main_type = types_list[0] if types_list else 'Not Available'
-                        opening_hours = details['result'].get('opening_hours', {}).get('weekday_text', ['Not Available']*7)
-
-                        venues.append({
-                            'name': name,
-                            'address': address,
-                            'phone_number': phone_number,
-                            'website': website,
-                            'type': main_type,
-                            'Monday': opening_hours[0],
-                            'Tuesday': opening_hours[1],
-                            'Wednesday': opening_hours[2],
-                            'Thursday': opening_hours[3],
-                            'Friday': opening_hours[4],
-                            'Saturday': opening_hours[5],
-                            'Sunday': opening_hours[6]
-                        })
-                    else:
-                        venues.append({
-                            'name': name,
-                            'address': address,
-                            'phone_number': 'Not Available',
-                            'website': 'Not Available',
-                            'type': 'Not Available',
-                            'Monday': 'Not Available',
-                            'Tuesday': 'Not Available',
-                            'Wednesday': 'Not Available',
-                            'Thursday': 'Not Available',
-                            'Friday': 'Not Available',
-                            'Saturday': 'Not Available',
-                            'Sunday': 'Not Available'
-                        })
-
-                   
-
-                df = pd.DataFrame(venues)
-                df = df.drop_duplicates()
-
-                # Create CSV in memory
-                output = io.StringIO()
-                fieldnames = list(df.columns)
-                writer = csv.DictWriter(output, fieldnames=fieldnames)
-                writer.writeheader()
-                for index, row in df.iterrows():
-                    writer.writerow(row.to_dict())
-
-                # Create HTTP response with CSV
-                output.seek(0)
-                response = HttpResponse(output, content_type='text/csv')
-                response['Content-Disposition'] = f'attachment; filename="{csv_file_name}.csv"'
-                
-                return response
-                
-            except Exception as e:
-                return Response({"msg": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            fetch_and_process_data.delay(api_key, city_name, token, keyword, csv_file_name)
         
-        else:
-            return Response({"msg": "Invalid input", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
+        return Response({"msg": "Your request is being processed."}, status=status.HTTP_202_ACCEPTED)
 
 
