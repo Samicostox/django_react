@@ -495,7 +495,7 @@ class GenerateRequirementsPDF(APIView):
 
             pdf_name = f"final_document_{request.user.id}.pdf"
             pdf_file = ContentFile(pdf_content, name=pdf_name)
-            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file)
+            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name = intro_data['name_of_project'])
 
             response = HttpResponse(pdf_content, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'

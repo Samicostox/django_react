@@ -40,9 +40,10 @@ class VenueFetchSerializer(serializers.Serializer):
 
 class UserPDFSerializer(serializers.ModelSerializer):
     pdf_file = serializers.SerializerMethodField()
+    name = serializers.CharField(max_length=255, required=True)
     class Meta:
         model = UserPDF
-        fields = ('id', 'pdf_file')
+        fields = ('id', 'pdf_file','name')
 
     
     def get_pdf_file(self, obj):
