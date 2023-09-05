@@ -510,7 +510,7 @@ class RetrieveUserPDFs(APIView):
         except UserPDF.DoesNotExist:
             raise Http404
 
-    def get(self, request, format=None):
+    def post(self, request):
         # Explicitly check for a token in the request data
         token = request.data.get('token', None)
         if token is None:

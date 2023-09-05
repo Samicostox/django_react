@@ -30,6 +30,5 @@ class UserPDF(models.Model):
     user = models.ForeignKey(User, related_name='pdfs', on_delete=models.CASCADE)
     pdf_file = models.FileField(upload_to='user_pdfs/')
 
-    
     def __str__(self):
         return f"PDF for {self.user.email}"
