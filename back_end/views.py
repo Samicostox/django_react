@@ -1,4 +1,4 @@
-
+from django.core.files.base import ContentFile
 import math
 import os
 import time
@@ -6,11 +6,11 @@ from PyPDF2 import PdfFileReader, PdfFileWriter, PdfReader, PdfWriter
 import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 
-from back_end.models import User
+from back_end.models import User, UserPDF
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UserSerializer, VenueFetchSerializer
+from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
@@ -493,11 +493,39 @@ class GenerateRequirementsPDF(APIView):
             pdf_content = final_pdf_buffer.getvalue()
             final_pdf_buffer.close()
 
+            pdf_name = f"final_document_{request.user.id}.pdf"
+            pdf_file = ContentFile(pdf_content, name=pdf_name)
+            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file)
+
             response = HttpResponse(pdf_content, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
             
             return response
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+    
+class RetrieveUserPDFs(APIView):
+    def get_object(self, user):
+        try:
+            return UserPDF.objects.filter(user=user)
+        except UserPDF.DoesNotExist:
+            raise Http404
+
+    def get(self, request, format=None):
+        # Explicitly check for a token in the request data
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Continue with existing logic
+        user_pdfs = self.get_object(request.user)
+        serializer = UserPDFSerializer(user_pdfs, many=True)
+        return Response(serializer.data)
     
 def fetch_venues(api_key, location, radius, keyword):
     base_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"

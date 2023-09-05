@@ -15,5 +15,6 @@ urlpatterns = [
      path('verify-email-code/', views.VerifyEmailCode.as_view(), name='verify-email-code'),
      path('generate_requirements_pdf/', views.GenerateRequirementsPDF.as_view(), name='generate_requirements_pdf'),
      path('fetch_venues/', views.FetchVenuesView.as_view(), name='fetch_venues'),
+     path('user_pdfs/', views.RetrieveUserPDFs.as_view(), name='retrieve-user-pdfs'),
     
 ]

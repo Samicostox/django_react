@@ -139,6 +139,9 @@ AUTH_USER_MODEL = 'back_end.User'
 
 FONT_DIR = os.path.join(BASE_DIR, 'fonts')
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # settings.py
 from celery import Celery
 from urllib.parse import urlparse

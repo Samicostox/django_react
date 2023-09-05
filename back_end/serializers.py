@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Item, User
+from .models import Item, User, UserPDF
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -36,3 +36,14 @@ class VenueFetchSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=100)  # Assuming the token is a simple string
     keyword = serializers.CharField(max_length=100)
     csv_file_name = serializers.CharField(max_length=100)
+
+
+class UserPDFSerializer(serializers.ModelSerializer):
+    pdf_file = serializers.SerializerMethodField()
+    class Meta:
+        model = UserPDF
+        fields = ('id', 'pdf_file')
+
+    
+    def get_pdf_file(self, obj):
+        return f"https://djangoback-705982cd1fda.herokuapp.com{obj.pdf_file.url}"
