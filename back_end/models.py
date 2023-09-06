@@ -41,3 +41,17 @@ class UserPDF(models.Model):
 
     def __str__(self):
         return f"PDF for {self.user.email}"
+    
+class UserCSV(models.Model):
+    CATEGORY_CHOICES = [
+        ('Type1', 'Email'),  # First type of CSV file
+        ('Type2', 'Phone')   # Second type of CSV file
+    ]
+
+    user = models.ForeignKey(User, related_name='csvs', on_delete=models.CASCADE)
+    csv_file = models.FileField(upload_to='user_csvs/')
+    category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
+    name = models.CharField(max_length=255, default='safecsv')
+
+    def __str__(self):
+        return f"CSV for {self.user.email} of category {self.category}"

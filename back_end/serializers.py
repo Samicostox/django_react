@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Item, University, User, UserPDF
+from .models import Item, University, User, UserCSV, UserPDF
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -61,3 +61,16 @@ class UserPDFSerializer(serializers.ModelSerializer):
     
     def get_pdf_file(self, obj):
         return f"https://djangoback-705982cd1fda.herokuapp.com{obj.pdf_file.url}"
+    
+
+class UserCSVSerializer(serializers.ModelSerializer):
+    csv_file = serializers.SerializerMethodField()
+    name = serializers.CharField(max_length=255, required=True)
+
+    class Meta:
+        model = UserCSV
+        fields = ('id', 'csv_file', 'category', 'name')
+
+    def get_csv_file(self, obj):
+        # Replace the URL with your actual host and path as needed
+        return f"https://your-django-app.herokuapp.com{obj.csv_file.url}"

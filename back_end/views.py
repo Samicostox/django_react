@@ -8,9 +8,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 
-from back_end.models import University, User, UserPDF
+from back_end.models import University, User, UserCSV, UserPDF
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UniversitySerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
+from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
@@ -103,6 +103,18 @@ def ask_gpt4(question):
 
 class ProcessTextView(APIView):
     def post(self, request):
+        token = request.data.get('token', None)
+        
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+            
+        # Validate the token
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+        
         serializer = TextSerializer(data=request.data)
         if serializer.is_valid():
             sample_text = serializer.validated_data['sample_text']
@@ -164,6 +176,17 @@ class ProcessTextView(APIView):
 
             # Create HTTP response with CSV
             output.seek(0)
+            csv_file_name = "generated_leads"
+            csv_content = output.getvalue().encode('utf-8')
+            user_csv = UserCSV(
+                    user=request.user,
+                    name=csv_file_name,
+                    category='email'  # Setting the category to "email"
+                )
+            user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
+            user_csv.save()
+
+            
             response = HttpResponse(output, content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="linkedin_data_processed.csv"'
             return response
@@ -673,13 +696,24 @@ def get_city_coordinates(api_key, city_name):
 class FetchVenuesView(APIView):
     def post(self, request):
         print("Received POST request")
+        token = request.data['token']
+
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
         print(request.data)
         serializer = VenueFetchSerializer(data=request.data)
 
         if serializer.is_valid():
             city_name = serializer.validated_data['city_name']
             api_key = serializer.validated_data['api_key']
-            token = serializer.validated_data['token']
+           
             keyword = serializer.validated_data['keyword']
             csv_file_name = serializer.validated_data['csv_file_name']
 
@@ -763,8 +797,19 @@ class FetchVenuesView(APIView):
 
                 # Create HTTP response with CSV
                 output.seek(0)
+                csv_content = output.getvalue().encode('utf-8')
+                user_csv = UserCSV(
+                    user=request.user,
+                    name=csv_file_name,
+                    category='phone'  # Setting the category to "phone"
+                )
+                user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
+                user_csv.save()
+
                 response = HttpResponse(output, content_type='text/csv')
                 response['Content-Disposition'] = f'attachment; filename="{csv_file_name}.csv"'
+
+                
                 
                 return response
                 
@@ -776,3 +821,54 @@ class FetchVenuesView(APIView):
 
 
 
+class FetchUserPhoneCSVsView(APIView):
+    def post(self, request):
+        print("Received POST request")
+        
+        # Token-based authentication
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Fetch all CSV files of category 'phone' for the authenticated user
+        try:
+            user_csvs = UserCSV.objects.filter(user=request.user, category='phone')
+        except UserCSV.DoesNotExist:
+            return Response({"msg": "No CSV files found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize the queryset
+        serializer = UserCSVSerializer(user_csvs, many=True)
+        
+        return Response({"csv_files": serializer.data}, status=status.HTTP_200_OK)
+
+class FetchUserEmailCSVsView(APIView):
+    def post(self, request):
+        print("Received POST request")
+        
+        # Token-based authentication
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Fetch all CSV files of category 'phone' for the authenticated user
+        try:
+            user_csvs = UserCSV.objects.filter(user=request.user, category='email')
+        except UserCSV.DoesNotExist:
+            return Response({"msg": "No CSV files found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize the queryset
+        serializer = UserCSVSerializer(user_csvs, many=True)
+        
+        return Response({"csv_files": serializer.data}, status=status.HTTP_200_OK)
