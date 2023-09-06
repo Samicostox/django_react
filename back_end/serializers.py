@@ -73,4 +73,4 @@ class UserCSVSerializer(serializers.ModelSerializer):
 
     def get_csv_file(self, obj):
         # Replace the URL with your actual host and path as needed
-        return f"https://your-django-app.herokuapp.com{obj.csv_file.url}"
+        return f"https://djangoback-705982cd1fda.herokuapp.com{obj.csv_file.url}"
