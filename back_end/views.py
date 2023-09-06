@@ -8,9 +8,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 
-from back_end.models import User, UserPDF
+from back_end.models import University, User, UserPDF
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
+from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UniversitySerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
@@ -170,7 +170,13 @@ class ProcessTextView(APIView):
 
         return Response({"msg": "Invalid data"})
     
-
+class AddUniversityView(APIView):
+    def post(self, request):
+        serializer = UniversitySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"msg": "Successfully added university!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class AskChatbotView(APIView):
     def post(self, request):
@@ -216,13 +222,22 @@ class SignUpView(APIView):
         if image_file:
             user.profile_picture = image_file
 
+        # Handle university (if provided)
+        university_id = request.data.get('university', None)  # Replace 'university' with the field name in your frontend form
+        if university_id:
+            try:
+                university = University.objects.get(id=university_id)
+                user.university = university
+            except University.DoesNotExist:
+                return Response({"error": "University does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+
         user.save()
-        
+
         # Send email
         mail_subject = 'Activate your account.'
         message = f'Your verification code is: {verification_code}'
         send_mail(mail_subject, message, 'from_email', [user.email])
-        
+
         return Response({"msg": "Successfully signed up! Please check your email for the verification code"}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -234,7 +249,7 @@ class VerifyEmailCode(APIView):
         try:
             user = User.objects.get(email=email)  # Replace CustomUser with your actual User model
             if user.email_verification_code == code:
-                user.isemailvalid = True  # Assuming you have this field to keep track of email verification status
+                user.is_email_valid = True  # Assuming you have this field to keep track of email verification status
                 user.email_verification_code = None  # Clear the code
                 user.save()
                 return Response({"msg": "Successfully verified email"}, status=status.HTTP_200_OK)
@@ -249,7 +264,7 @@ class LoginView(APIView):
     def post(self, request):
         user = authenticate(email=request.data['email'], password=request.data['password'])
         if user:
-            if user.isemailvalid:
+            if user.is_email_valid:
                 token, created = Token.objects.get_or_create(user=user)  # This will get the token if it exists, otherwise it will create one.
                 return Response({"msg": "Successfully logged in!", "token": token.key}, status=status.HTTP_200_OK)
             else:
@@ -262,8 +277,8 @@ class VerifyEmail(APIView):
         try:
             token_obj = Token.objects.get(key=token)
             user = token_obj.user   
-            if not user.isemailvalid:
-                user.isemailvalid = True
+            if not user.is_email_valid:
+                user.is_email_valid = True
                 user.save()
             return Response({"msg": "Successfully verified email"}, status=status.HTTP_200_OK)
         except:

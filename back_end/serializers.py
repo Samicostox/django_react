@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Item, User, UserPDF
+from .models import Item, University, User, UserPDF
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,11 +16,18 @@ class ChatbotQuerySerializer(serializers.Serializer):
     question = serializers.CharField()
 
 
+class UniversitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = University
+        fields = ('id', 'name')
+
 class UserSerializer(serializers.ModelSerializer):
     profile_picture = serializers.SerializerMethodField()
+    university = UniversitySerializer(read_only=True)  # Add this line
+
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'password', 'username', 'profile_picture')
+        fields = ('id', 'name', 'email', 'password', 'profile_picture', 'university')  # Add 'university'
         extra_kwargs = {'password': {'write_only': True}}
 
     def get_profile_picture(self, obj):

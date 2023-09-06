@@ -17,5 +17,5 @@ urlpatterns = [
      path('fetch_venues/', views.FetchVenuesView.as_view(), name='fetch_venues'),
      path('user_pdfs/', views.RetrieveUserPDFs.as_view(), name='retrieve-user-pdfs'),
      path('retrieve_user_info/', views.RetrieveUserInfo.as_view(), name='retrieve_user_info'),
-    
+     path('add_university/', views.AddUniversityView.as_view(), name='add-university'),
 ]
