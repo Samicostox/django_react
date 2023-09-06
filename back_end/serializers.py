@@ -69,7 +69,7 @@ class UserCSVSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserCSV
-        fields = ('id', 'csv_file', 'category', 'name')
+        fields = ('id', 'csv_file', 'category', 'name','created_at')
 
     def get_csv_file(self, obj):
         # Replace the URL with your actual host and path as needed

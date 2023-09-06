@@ -20,4 +20,5 @@ urlpatterns = [
      path('add_university/', views.AddUniversityView.as_view(), name='add-university'),
      path('coldoutreach/', views.FetchUserPhoneCSVsView.as_view(), name='coldoutreach'),
      path('emailcsv/', views.FetchUserEmailCSVsView.as_view(), name='emailcsv'),
+     path('usercsv/', views.FetchUserCSVsView.as_view(), name='emailcsv'),
 ]

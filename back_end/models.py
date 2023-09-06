@@ -38,6 +38,7 @@ class UserPDF(models.Model):
     user = models.ForeignKey(User, related_name='pdfs', on_delete=models.CASCADE)
     pdf_file = models.FileField(upload_to='user_pdfs/')
     name = models.CharField(max_length=255, default = 'safequeen')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"PDF for {self.user.email}"
@@ -52,6 +53,7 @@ class UserCSV(models.Model):
     csv_file = models.FileField(upload_to='user_csvs/')
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
     name = models.CharField(max_length=255, default='safecsv')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"CSV for {self.user.email} of category {self.category}"

@@ -872,3 +872,30 @@ class FetchUserEmailCSVsView(APIView):
         serializer = UserCSVSerializer(user_csvs, many=True)
         
         return Response({"csv_files": serializer.data}, status=status.HTTP_200_OK)
+
+
+class FetchUserCSVsView(APIView):
+    def post(self, request):
+        print("Received POST request")
+        
+        # Token-based authentication
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Fetch all CSV files of category 'phone' for the authenticated user
+        try:
+            user_csvs = UserCSV.objects.filter(user=request.user)
+        except UserCSV.DoesNotExist:
+            return Response({"msg": "No CSV files found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize the queryset
+        serializer = UserCSVSerializer(user_csvs, many=True)
+        
+        return Response({"csv_files": serializer.data}, status=status.HTTP_200_OK)
