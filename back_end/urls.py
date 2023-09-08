@@ -21,4 +21,5 @@ urlpatterns = [
      path('coldoutreach/', views.FetchUserPhoneCSVsView.as_view(), name='coldoutreach'),
      path('emailcsv/', views.FetchUserEmailCSVsView.as_view(), name='emailcsv'),
      path('usercsv/', views.FetchUserCSVsView.as_view(), name='emailcsv'),
+     path('update_user/', views.UpdateUserInfo.as_view(), name='update-user-info'),
 ]

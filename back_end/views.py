@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
 import math
 import os
@@ -326,7 +327,35 @@ class RetrieveUserInfo(APIView):
         return Response(user_serializer.data, status=status.HTTP_200_OK)
 
 
+class UpdateUserInfo(APIView):
+    
+    def put(self, request, *args, **kwargs):
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+        
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
 
+        try:
+            user = request.user
+
+            # You can now use serializers or manually save the fields.
+            user.name = request.data.get('name', user.name)
+            user.profile_picture = request.data.get('profile_picture', user.profile_picture)
+            user.university_id = request.data.get('university', user.university_id)
+            
+            # Save the updated user model
+            user.save()
+
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except ObjectDoesNotExist:
+            return Response({'error': 'User does not exist'}, status=status.HTTP_400_BAD_REQUEST)
 
 def activate(request, uidb64, token):
     User = get_user_model()
