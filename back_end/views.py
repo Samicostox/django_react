@@ -290,7 +290,7 @@ class LoginView(APIView):
         if user:
             if user.is_email_valid:
                 token, created = Token.objects.get_or_create(user=user)  # This will get the token if it exists, otherwise it will create one.
-                return Response({"msg": "Successfully logged in!", "token": token.key, "university": user.university.name}, status=status.HTTP_200_OK)
+                return Response({"msg": "Successfully logged in!", "token": token.key, "university": user.university.name, "name" : user.name, "profile_picture" : user.profile_picture.url}, status=status.HTTP_200_OK)
             else:
                 return Response({"msg": "Please verify your email first"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"msg": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
