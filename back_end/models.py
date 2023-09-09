@@ -1,15 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
-
-
 class Item(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
 
 class University(models.Model):
     name = models.CharField(max_length=255)
-
 
 class User(AbstractUser):
     username = None
@@ -30,10 +27,6 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
-
-
-
-    
 class UserPDF(models.Model):
     user = models.ForeignKey(User, related_name='pdfs', on_delete=models.CASCADE)
     pdf_file = models.FileField(upload_to='user_pdfs/')

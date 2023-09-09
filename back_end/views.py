@@ -591,8 +591,12 @@ class GenerateRequirementsPDF(APIView):
             pdf_file = ContentFile(pdf_content, name=pdf_name)
             user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name = intro_data['name_of_project'])
 
+            pdf_url = user_pdf.pdf_file.url
+
             response = HttpResponse(pdf_content, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
+
+            response['X-PDF-URL'] = pdf_url
             
             return response
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
