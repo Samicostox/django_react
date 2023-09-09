@@ -380,7 +380,7 @@ def activate(request, uidb64, token):
     
 
 def ask_gpt_custom(question):
-    model_engine = "ft:gpt-3.5-turbo-0613:personal::7uMHQkkK"  # Replace with your fine-tuned model ID
+    model_engine = "ft:gpt-3.5-turbo-0613:personal::7wtZ7Z9e"  # Replace with your fine-tuned model ID
     messages = [
         {"role": "system", "content": "You are a tech specialist and you create functional and non-functional requirements."},
         {"role": "user", "content": "write me the functional and non functional requirements of the following app" + question}
