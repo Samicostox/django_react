@@ -1,0 +1,6 @@
+{'object': 'file', 'id': 'file-qfm4qJ3ZL9ffLS4kfWWlWkmp', 'purpose': 'fine-tune', 'filename': 'data.jsonl', 'bytes': 303776, 'created_at': 1694270037, 'status': 'uploaded', 'status_details': None}
+
+{'object': 'fine_tuning.job', 'id': 'ftjob-gBasZLaHZVfGKpxgPk7t8Q3X', 'model': 'gpt-3.5-turbo-0613', 'created_at': 1694270090, 'finished_at': None, 'fine_tuned_model': None, 'organization_id': 'org-kfHvhBUYLAzzBBEsdvXuW0Fk', 'result_files': [], 'status': 'created', 'validation_file': None, 'training_file': 'file-qfm4qJ3ZL9ffLS4kfWWlWkmp', 'hyperparameters': {'n_epochs': 3}, 'trained_tokens': None, 'error': None}
+
+
+CSVGenie is an app designed to help users generate and update CSV files easily. The app offers features like CSV template selection for various use-cases, data input and editing functionalities, real-time data validation to ensure data integrity, and a dashboard for managing multiple CSV files. It aims to be a comprehensive platform for both individual users and businesses, helping users to manage data efficiently, reduce errors, and streamline data processing tasks.

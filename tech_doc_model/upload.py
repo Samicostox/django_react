@@ -19,7 +19,7 @@ def upload_file_for_finetuning(file_path, api_key):
 api_key = "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"
 
 # Since the file is in the same directory as the script, just specify its name
-file_path = "converted_messages.jsonl"
+file_path = "data.jsonl"
 
 response = upload_file_for_finetuning(file_path, api_key)
 print(response)

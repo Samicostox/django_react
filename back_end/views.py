@@ -380,7 +380,7 @@ def activate(request, uidb64, token):
     
 
 def ask_gpt_custom(question):
-    model_engine = "ft:gpt-3.5-turbo-0613:personal::7uMHQkkK"  # Replace with your fine-tuned model ID
+    model_engine = "ft:gpt-3.5-turbo-0613:personal::7wtZ7Z9e"  # Replace with your fine-tuned model ID
     messages = [
         {"role": "system", "content": "You are a tech specialist and you create functional and non-functional requirements."},
         {"role": "user", "content": "write me the functional and non functional requirements of the following app" + question}
@@ -468,8 +468,9 @@ def generate_requirements_pdf(question):
     answer = ask_gpt_custom(question)
     # Assuming generate_pdf is a function you've defined elsewhere
     generate_pdf(buffer_requirements, answer)
+    print(answer)
     
-    return buffer_requirements
+    return buffer_requirements, answer
 
 def generate_intro_pdf(data,user_university,question):
     buffer_intro = io.BytesIO()
@@ -532,6 +533,39 @@ def generate_intro_pdf(data,user_university,question):
     
     return buffer_intro
 
+def process_requirements(answer):
+    # Initialize lists
+    functional_titles = []
+    functional_requirements = []
+    non_functional_titles = []
+    non_functional_requirements = []
+
+    # Split the text into functional and non-functional parts
+    functional_text, non_functional_text = answer.split("2.2 Non-Functional Requirements")
+
+    # Further split each part into sections based on digit and period (e.g., "1. ", "2. ", etc.)
+    functional_sections = re.split(r'\d+\. ', functional_text)[1:]  # Skip the first empty string
+    non_functional_sections = re.split(r'\d+\. ', non_functional_text)[1:]  # Skip the first empty string
+
+    # Process functional sections
+    for section in functional_sections:
+        lines = section.strip().split('\n')
+        title = lines[0].strip().replace(':', '')
+        requirements = [line.replace('• ', '').strip() for line in lines[1:]]
+        functional_titles.append(title)
+        functional_requirements.append(requirements)
+
+    # Process non-functional sections
+    for section in non_functional_sections:
+        lines = section.strip().split('\n')
+        title = lines[0].strip().replace(':', '')
+        requirements = [line.replace('• ', '').strip() for line in lines[1:]]
+        non_functional_titles.append(title)
+        non_functional_requirements.append(requirements)
+
+    return functional_titles, functional_requirements, non_functional_titles, non_functional_requirements
+
+
 class GenerateRequirementsPDF(APIView):
     def post(self, request):
         token = request.data.get('token', None)
@@ -562,7 +596,9 @@ class GenerateRequirementsPDF(APIView):
             }
             buffer_intro = generate_intro_pdf(intro_data,user_university,question)
 
-            buffer_requirements = generate_requirements_pdf(question)
+            buffer_requirements, answer = generate_requirements_pdf(question)  # Get answer here
+            functional_titles, functional_requirements, non_functional_titles, non_functional_requirements = process_requirements(answer)
+            
 
             # Combine PDFs
             buffer_first_page.seek(0)
@@ -591,10 +627,16 @@ class GenerateRequirementsPDF(APIView):
             pdf_file = ContentFile(pdf_content, name=pdf_name)
             user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name = intro_data['name_of_project'])
 
-            response = HttpResponse(pdf_content, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
+            ##response = HttpResponse(pdf_content, content_type='application/pdf')
+            ##response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
             
-            return response
+            return Response({
+                "functional_titles": functional_titles,
+                "functional_requirements": functional_requirements,
+                "non_functional_titles": non_functional_titles,
+                "non_functional_requirements": non_functional_requirements
+            })
+
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
     
 class RetrieveUserPDFs(APIView):

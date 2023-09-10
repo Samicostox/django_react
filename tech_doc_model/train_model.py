@@ -22,7 +22,7 @@ def start_fine_tuning_job(training_file_id, model, api_key):
 api_key = "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"
 
 # Replace 'your_training_file_id_here' with the ID of the file you've uploaded for training
-training_file_id = "file-GyTBlkanTGRgfrzozvnTS01m"
+training_file_id = "file-qfm4qJ3ZL9ffLS4kfWWlWkmp"
 
 # Specify the base model you wish to fine-tune
 model = "gpt-3.5-turbo-0613"
