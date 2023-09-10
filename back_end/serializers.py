@@ -42,6 +42,13 @@ class GeneratePdfSerializer(serializers.Serializer):
     university = serializers.ChoiceField(choices=[('1', 'Birmingham'), ('2', 'Warwick')], required=True)
     question = serializers.CharField()
 
+class GeneratePdfSerializer2(serializers.Serializer):
+    token = serializers.CharField(max_length=255, required=True)
+    title = serializers.CharField(max_length=255, required=True)
+    date = serializers.CharField(max_length=255, required=True)
+    university = serializers.ChoiceField(choices=[('1', 'Birmingham'), ('2', 'Warwick')], required=True)
+    
+
 
 class VenueFetchSerializer(serializers.Serializer):
     city_name = serializers.CharField(max_length=100)

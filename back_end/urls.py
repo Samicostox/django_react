@@ -22,4 +22,5 @@ urlpatterns = [
      path('emailcsv/', views.FetchUserEmailCSVsView.as_view(), name='emailcsv'),
      path('usercsv/', views.FetchUserCSVsView.as_view(), name='emailcsv'),
      path('update_user/', views.UpdateUserInfo.as_view(), name='update-user-info'),
+     path('generate_pdf_after/', views.GenerateCustomRequirementsPDF.as_view(), name='generate_pdf_after'),
 ]

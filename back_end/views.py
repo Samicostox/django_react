@@ -11,7 +11,7 @@ from django.http import Http404, HttpResponse
 
 from back_end.models import University, User, UserCSV, UserPDF
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
+from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, GeneratePdfSerializer2, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
@@ -973,3 +973,127 @@ class FetchUserCSVsView(APIView):
         serializer = UserCSVSerializer(user_csvs, many=True)
         
         return Response({"csv_files": serializer.data}, status=status.HTTP_200_OK)
+    
+
+
+def generate_requirements_pdf_from_lists(functional_titles, functional_requirements, non_functional_titles, non_functional_requirements):
+    buffer = io.BytesIO()
+    styles = getSampleStyleSheet()
+    
+    # Define custom styles
+    bullet_style = ParagraphStyle('Bullet', parent=styles['BodyText'], firstLineIndent=0, leftIndent=36, spaceAfter=0, bulletIndent=0)
+    subheading_style = ParagraphStyle('SubHeading', parent=styles['Heading1'], fontSize=14)
+    main_heading_style = ParagraphStyle('MainHeading', parent=styles['Heading1'], fontSize=18)
+    biggest_heading_style = ParagraphStyle('BiggestHeading', parent=styles['Heading1'], fontSize=24)
+
+    pdf = SimpleDocTemplate(buffer, pagesize=letter)
+
+    # Create the story list to hold the PDF elements
+    story = []
+    
+    # Add the main heading for Requirements
+    story.append(Paragraph("2 Requirements", biggest_heading_style))
+    story.append(Spacer(1, 24))  # Additional space after the main heading
+
+    # Add Functional Requirements
+    story.append(Paragraph("2.1 Functional Requirements", main_heading_style))
+    story.append(Spacer(1, 18))  # Additional space after the subheading
+    
+    for title, requirements in zip(functional_titles, functional_requirements):
+        story.append(Paragraph(title + ":", styles['Heading2']))
+        story.append(Spacer(1, 12))  # Additional space before the content
+        for req in requirements:
+            story.append(Paragraph("• " + req, bullet_style))
+        story.append(Spacer(1, 12))
+
+    # Add Non-Functional Requirements
+    story.append(Spacer(1, 40))
+    story.append(Paragraph("2.2 Non-Functional Requirements", main_heading_style))
+    story.append(Spacer(1, 18))  # Additional space after the subheading
+    
+    for title, requirements in zip(non_functional_titles, non_functional_requirements):
+        story.append(Paragraph(title + ":", styles['Heading2']))
+        story.append(Spacer(1, 12))  # Additional space before the content
+        for req in requirements:
+            story.append(Paragraph("• " + req, bullet_style))
+        story.append(Spacer(1, 12))
+
+    # Build the PDF
+    pdf.build(story)
+    
+    # Move the buffer position to the beginning
+    buffer.seek(0)
+    
+    return buffer
+# ... (Your existing functions like generate_pdf, generate_first_page_pdf, etc.)
+
+class GenerateCustomRequirementsPDF(APIView):
+    def post(self, request):
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        serializer = GeneratePdfSerializer2(data=request.data)
+        if serializer.is_valid():
+            # Extracting data from the request
+            functional_titles = request.data.get('functional_titles', [])
+            functional_requirements = request.data.get('functional_requirements', [])
+            non_functional_titles = request.data.get('non_functional_titles', [])
+            non_functional_requirements = request.data.get('non_functional_requirements', [])
+            
+            intro_data = {
+                'name_of_project': request.data.get('name_of_project'),
+                'type_of_project': request.data.get('type_of_project'),
+                'name_of_client_company': request.data.get('name_of_client_company'),
+                'consultant_name': request.data.get('consultant_name'),
+            }
+            
+            user_title = serializer.validated_data.get('title')
+            user_date = serializer.validated_data.get('date')
+            user_university = serializer.validated_data.get('university')
+
+            buffer_first_page = generate_first_page_pdf(user_title, user_date, user_university)
+            buffer_intro = generate_intro_pdf(intro_data, user_university, "Custom Question")  # Replace "Custom Question" as needed
+            
+            # Assuming you have a function to generate requirements PDF based on the lists
+            buffer_requirements = generate_requirements_pdf_from_lists(
+                functional_titles, functional_requirements,
+                non_functional_titles, non_functional_requirements
+            )
+
+            # Combine PDFs
+            buffer_first_page.seek(0)
+            buffer_intro.seek(0)
+            buffer_requirements.seek(0)
+            
+            pdf_reader1 = PdfReader(buffer_first_page)
+            pdf_reader2 = PdfReader(buffer_intro)
+            pdf_reader3 = PdfReader(buffer_requirements)
+            
+            pdf_writer = PdfWriter()
+
+            for i in range(len(pdf_reader1.pages)):
+                pdf_writer.add_page(pdf_reader1.pages[i])
+            for i in range(len(pdf_reader2.pages)):
+                pdf_writer.add_page(pdf_reader2.pages[i])
+            for i in range(len(pdf_reader3.pages)):
+                pdf_writer.add_page(pdf_reader3.pages[i])
+
+            final_pdf_buffer = io.BytesIO()
+            pdf_writer.write(final_pdf_buffer)
+            pdf_content = final_pdf_buffer.getvalue()
+            final_pdf_buffer.close()
+
+            pdf_name = f"final_document_{request.user.id}.pdf"
+            pdf_file = ContentFile(pdf_content, name=pdf_name)
+            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name=intro_data['name_of_project'])
+
+            return Response({"msg": "PDF generated successfully"})
+
+        return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
