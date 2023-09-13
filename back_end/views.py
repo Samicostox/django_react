@@ -1,3 +1,4 @@
+from celery import shared_task
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
 import math
@@ -102,6 +103,34 @@ def ask_gpt4(question):
     return answer
 
 
+@shared_task
+def generate_csv_and_save(user_id, user_list, personalize, email_template):
+    # Your logic here
+    df = pd.DataFrame(user_list)
+
+    if personalize:
+        df['Mail'] = df['Mixed'].apply(lambda x: personalize_email(x, email_template))
+        fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames', 'Mail']
+    else:
+        fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames']
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    for index, row in df.iterrows():
+        writer.writerow(row.to_dict())
+
+    output.seek(0)
+    csv_file_name = "generated_leads"
+    csv_content = output.getvalue().encode('utf-8')
+    user_csv = UserCSV(
+        user_id=user_id,
+        name=csv_file_name,
+        category='email'
+    )
+    user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
+    user_csv.save()
+
 class ProcessTextView(APIView):
     def post(self, request):
         token = request.data.get('token', None)
@@ -158,39 +187,12 @@ class ProcessTextView(APIView):
                 entry['Companies'] = ", ".join(companies)
 
             # Create a DataFrame from the user_list
-            df = pd.DataFrame(user_list)
+            generate_csv_and_save.apply_async(
+                args=[request.user.id, user_list, personalize, email_template],
+                countdown=1  # Run task one second from now
+            )
 
-            # Add a new column for personalized emails
-            if personalize:  # Check if the boolean is True
-                # Add a new column for personalized emails
-                df['Mail'] = df['Mixed'].apply(lambda x: personalize_email(x, email_template))
-                fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames', 'Mail']
-            else:
-                fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames']
-
-            # Create CSV in memory
-            output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=fieldnames)
-            writer.writeheader()
-            for index, row in df.iterrows():
-                writer.writerow(row.to_dict())
-
-            # Create HTTP response with CSV
-            output.seek(0)
-            csv_file_name = "generated_leads"
-            csv_content = output.getvalue().encode('utf-8')
-            user_csv = UserCSV(
-                    user=request.user,
-                    name=csv_file_name,
-                    category='email'  # Setting the category to "email"
-                )
-            user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
-            user_csv.save()
-
-            
-            response = HttpResponse(output, content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename="linkedin_data_processed.csv"'
-            return response
+            return Response({"msg": "Your request is being processed. You'll be notified once the CSV is ready."})
 
         return Response({"msg": "Invalid data"})
     
@@ -762,65 +764,14 @@ def get_city_coordinates(api_key, city_name):
 
 # Assuming the other functions you've mentioned are imported here as well
 
-from celery import shared_task
 
-@shared_task
-def fetch_venues_task(api_key, location, radius, keyword, user_id, csv_file_name):
-    base_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-    venues = []
-    params = {
-        "location": location,
-        "radius": radius,
-        "keyword": keyword,
-        "key": api_key
-    }
 
-    while True:
-        response = requests.get(base_url, params=params)
-
-        if response.status_code == 200:
-            results = response.json()
-            venues.extend(results.get('results', []))
-
-            next_page_token = results.get('next_page_token')
-            if next_page_token:
-                params['pagetoken'] = next_page_token
-                time.sleep(5)
-            else:
-                break
-        else:
-            break
-
-    # Post-processing logic here.
-    # Convert `venues` list to DataFrame
-    df = pd.DataFrame(venues)
-    df = df.drop_duplicates()
-
-    output = io.StringIO()
-    fieldnames = list(df.columns)
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
-    writer.writeheader()
-    for index, row in df.iterrows():
-        writer.writerow(row.to_dict())
-
-    # Save CSV to the model
-    output.seek(0)
-    csv_content = output.getvalue().encode('utf-8')
-    
-    user = User.objects.get(id=user_id)
-    user_csv = UserCSV(
-        user=user,
-        name=csv_file_name,
-        category='phone'  # Setting the category to "phone"
-    )
-    user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
-    user_csv.save()
 
 
 class FetchVenuesView(APIView):
     def post(self, request):
         print("Received POST request")
-        token = request.data.get('token', None)  # Safely fetch the token
+        token = request.data['token']
 
         if token is None:
             raise AuthenticationFailed('No token provided')
@@ -831,24 +782,112 @@ class FetchVenuesView(APIView):
         except Token.DoesNotExist:
             raise AuthenticationFailed('Invalid token')
 
+        print(request.data)
         serializer = VenueFetchSerializer(data=request.data)
 
         if serializer.is_valid():
             city_name = serializer.validated_data['city_name']
             api_key = serializer.validated_data['api_key']
+           
             keyword = serializer.validated_data['keyword']
             csv_file_name = serializer.validated_data['csv_file_name']
 
             try:
+                # Here goes your original script, adapted to work within this function
                 lat, lng = get_city_coordinates(api_key, city_name)
                 if lat is None and lng is None:
                     return Response({"msg": "Invalid API key"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                offsets_lat, offsets_lng = get_offsets(lat, 3)
 
-                # Call the asynchronous task
-                fetch_venues_task.delay(api_key, f"{lat},{lng}", "2000", keyword, request.user.id, csv_file_name)
+                locations = [(lat + offset_lat, lng + offset_lng)
+                             for offset_lat in offsets_lat
+                             for offset_lng in offsets_lng][:20]
+                locations = [f"{lat},{lng}" for lat, lng in locations]
+                
+                radius = "2000"
 
-                return Response({"msg": "Fetching started, you will be notified once it's done"})
+                all_venues = []
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_location = {executor.submit(fetch_venues, api_key, location, radius, keyword): location for location in locations}
+                    for future in concurrent.futures.as_completed(future_to_location):
+                        all_venues.extend(future.result())
 
+                venues = []
+                for result in all_venues:
+                    name = result.get('name')
+                    address = result.get('vicinity')
+                    place_id = result.get('place_id')
+                    details = fetch_place_details(api_key, place_id)
+
+                    if details:
+                        phone_number = details['result'].get('formatted_phone_number', 'Not Available')
+                        website = details['result'].get('website', 'Not Available')
+                        types_list = details['result'].get('types', ['Not Available'])
+                        main_type = types_list[0] if types_list else 'Not Available'
+                        opening_hours = details['result'].get('opening_hours', {}).get('weekday_text', ['Not Available']*7)
+
+                        venues.append({
+                            'name': name,
+                            'address': address,
+                            'phone_number': phone_number,
+                            'website': website,
+                            'type': main_type,
+                            'Monday': opening_hours[0],
+                            'Tuesday': opening_hours[1],
+                            'Wednesday': opening_hours[2],
+                            'Thursday': opening_hours[3],
+                            'Friday': opening_hours[4],
+                            'Saturday': opening_hours[5],
+                            'Sunday': opening_hours[6]
+                        })
+                    else:
+                        venues.append({
+                            'name': name,
+                            'address': address,
+                            'phone_number': 'Not Available',
+                            'website': 'Not Available',
+                            'type': 'Not Available',
+                            'Monday': 'Not Available',
+                            'Tuesday': 'Not Available',
+                            'Wednesday': 'Not Available',
+                            'Thursday': 'Not Available',
+                            'Friday': 'Not Available',
+                            'Saturday': 'Not Available',
+                            'Sunday': 'Not Available'
+                        })
+
+                   
+
+                df = pd.DataFrame(venues)
+                df = df.drop_duplicates()
+
+                # Create CSV in memory
+                output = io.StringIO()
+                fieldnames = list(df.columns)
+                writer = csv.DictWriter(output, fieldnames=fieldnames)
+                writer.writeheader()
+                for index, row in df.iterrows():
+                    writer.writerow(row.to_dict())
+
+                # Create HTTP response with CSV
+                output.seek(0)
+                csv_content = output.getvalue().encode('utf-8')
+                user_csv = UserCSV(
+                    user=request.user,
+                    name=csv_file_name,
+                    category='phone'  # Setting the category to "phone"
+                )
+                user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
+                user_csv.save()
+
+                response = HttpResponse(output, content_type='text/csv')
+                response['Content-Disposition'] = f'attachment; filename="{csv_file_name}.csv"'
+
+                
+                
+                return response
+                
             except Exception as e:
                 return Response({"msg": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
