@@ -172,3 +172,5 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'sami.ribardiere@gmail.com'  # Your email address here
 EMAIL_HOST_PASSWORD = 'hjruuwlyfhmasorg'  # Your password here
+
+CELERY_BROKER_URL = 'rediss://:p564dd1c83b2a05a09eb96c1c2906a46560199317cb03b557969373868bd59c7f@ec2-34-254-169-3.eu-west-1.compute.amazonaws.com:10470'
