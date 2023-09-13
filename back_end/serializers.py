@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Item, University, User, UserCSV, UserPDF
+from cloudinary.utils import cloudinary_url 
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -76,8 +77,7 @@ class UserCSVSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserCSV
-        fields = ('id', 'csv_file', 'category', 'name','created_at')
+        fields = ('id', 'csv_file', 'category', 'name', 'created_at')
 
     def get_csv_file(self, obj):
-        # Replace the URL with your actual host and path as needed
-        return f"https://djangoback-705982cd1fda.herokuapp.com{obj.csv_file.url}"
+        return f"{obj.csv_file.url}.csv"

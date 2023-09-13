@@ -9,6 +9,7 @@ import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
+from cloudinary.uploader import upload
 
 from back_end.models import University, User, UserCSV, UserPDF
 from react_backend import settings
@@ -86,7 +87,6 @@ def personalize_email(mixed_info, email_template):
     print(f"Personalized email for {mixed_info}:\n{personalized_email}\n")
     return personalized_email
 
-
 def ask_gpt4(question):
     model_engine = "gpt-4"  # Replace with the actual GPT-4 engine ID when it becomes available
     messages = [
@@ -101,38 +101,6 @@ def ask_gpt4(question):
     
     answer = response['choices'][0]['message']['content']
     return answer
-
-
-@shared_task
-def generate_csv_and_save(user_id, user_list, personalize, email_template):
-    # Your logic here
-    df = pd.DataFrame(user_list)
-
-    if personalize:
-        df['Mail'] = df['Mixed'].apply(lambda x: personalize_email(x, email_template))
-        fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames', 'Mail']
-    else:
-        fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames']
-
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
-    writer.writeheader()
-    for index, row in df.iterrows():
-        writer.writerow(row.to_dict())
-
-    output.seek(0)
-    csv_file_name = "generated_leads"
-
-    absolute_path = os.path.abspath(f"{csv_file_name}.csv")
-    print(f"Saving file to {absolute_path}")
-    csv_content = output.getvalue().encode('utf-8')
-    user_csv = UserCSV(
-        user_id=user_id,
-        name=csv_file_name,
-        category='email'
-    )
-    user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
-    user_csv.save()
 
 class ProcessTextView(APIView):
     def post(self, request):
@@ -190,15 +158,53 @@ class ProcessTextView(APIView):
                 entry['Companies'] = ", ".join(companies)
 
             # Create a DataFrame from the user_list
-            generate_csv_and_save.apply_async(
-                args=[request.user.id, user_list, personalize, email_template],
-                countdown=1  # Run task one second from now
-            )
+            df = pd.DataFrame(user_list)
 
-            return Response({"msg": "Your request is being processed. You'll be notified once the CSV is ready."})
+            # Add a new column for personalized emails
+            if personalize:  # Check if the boolean is True
+                # Add a new column for personalized emails
+                df['Mail'] = df['Mixed'].apply(lambda x: personalize_email(x, email_template))
+                fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames', 'Mail']
+            else:
+                fieldnames = ['Mixed', 'Email', 'Companies', 'PersonNames']
+
+            # Create CSV in memory
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            for index, row in df.iterrows():
+                writer.writerow(row.to_dict())
+
+            # Create HTTP response with CSV
+            import cloudinary.uploader
+            output.seek(0)
+            csv_file_name = "generated_leads"
+            csv_content = output.getvalue().encode('utf-8')
+            uploaded = cloudinary.uploader.upload(
+        csv_content,
+        resource_type="raw",
+        public_id=f"{csv_file_name}.csv",
+        format="csv"
+    )
+
+            user_csv = UserCSV(
+                    user=request.user,
+                    name=csv_file_name,
+                    category='email' , # Setting the category to "email"
+                    csv_file=uploaded['url']
+                )
+            
+            
+            user_csv.save()
+
+            
+            response = HttpResponse(output, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="linkedin_data_processed.csv"'
+            return response
 
         return Response({"msg": "Invalid data"})
-    
+
+
 class AddUniversityView(APIView):
     def post(self, request):
         serializer = UniversitySerializer(data=request.data)

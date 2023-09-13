@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-
+from cloudinary.models import CloudinaryField
 class Item(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
@@ -43,7 +43,7 @@ class UserCSV(models.Model):
     ]
 
     user = models.ForeignKey(User, related_name='csvs', on_delete=models.CASCADE)
-    csv_file = models.FileField(upload_to='user_csvs/')
+    csv_file = CloudinaryField('csv_file')
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
     name = models.CharField(max_length=255, default='safecsv')
     created_at = models.DateTimeField(auto_now_add=True)
