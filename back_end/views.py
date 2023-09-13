@@ -122,6 +122,9 @@ def generate_csv_and_save(user_id, user_list, personalize, email_template):
 
     output.seek(0)
     csv_file_name = "generated_leads"
+
+    absolute_path = os.path.abspath(f"{csv_file_name}.csv")
+    print(f"Saving file to {absolute_path}")
     csv_content = output.getvalue().encode('utf-8')
     user_csv = UserCSV(
         user_id=user_id,
