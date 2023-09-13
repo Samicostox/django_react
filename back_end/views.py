@@ -74,7 +74,7 @@ Please find attached our Pitchbook to learn more about us!
 Best,
 Sami Ribardiere
 """
-
+import cloudinary.uploader
 # Function to personalize email
 def personalize_email(mixed_info, email_template):
     prompt = f"Based on these informations : {mixed_info}, please fill the [] in following email: {email_template}"
@@ -176,7 +176,7 @@ class ProcessTextView(APIView):
                 writer.writerow(row.to_dict())
 
             # Create HTTP response with CSV
-            import cloudinary.uploader
+            
             output.seek(0)
             csv_file_name = "generated_leads"
             csv_content = output.getvalue().encode('utf-8')
@@ -253,9 +253,10 @@ class SignUpView(APIView):
         user.email_verification_code = verification_code
 
         # Handle profile picture (if provided)
-        image_file = request.FILES.get('profile_picture', None)  # Replace 'profile_picture' with the field name in your frontend form
+        image_file = request.FILES.get('profile_picture', None)
         if image_file:
-            user.profile_picture = image_file
+            uploaded = upload(image_file, resource_type="image")
+            user.profile_picture = uploaded['public_id']
 
         # Handle university (if provided)
         university_id = request.data.get('university', None)  # Replace 'university' with the field name in your frontend form
@@ -293,7 +294,7 @@ class VerifyEmailCode(APIView):
         except User.DoesNotExist:  # Replace CustomUser with your actual User model
             return Response({"msg": "Invalid email"}, status=status.HTTP_400_BAD_REQUEST)
 
-
+from cloudinary.utils import cloudinary_url
 
 class LoginView(APIView):
     def post(self, request):
@@ -301,8 +302,9 @@ class LoginView(APIView):
         if user:
             if user.is_email_valid:
                 token, created = Token.objects.get_or_create(user=user)  # This will get the token if it exists, otherwise it will create one.
-                base_url = "https://djangoback-705982cd1fda.herokuapp.com"
-                image_url = f"{base_url}{user.profile_picture.url}" if user.profile_picture else None
+                image_url = None
+                if user.profile_picture:
+                    image_url = cloudinary_url(str(user.profile_picture),secure=True)[0]
 
                 return Response({"msg": "Successfully logged in!", "token": token.key, "university": user.university.name, "name" : user.name, "profile_picture" : image_url}, status=status.HTTP_200_OK)
             else:
@@ -882,12 +884,19 @@ class FetchVenuesView(APIView):
                 # Create HTTP response with CSV
                 output.seek(0)
                 csv_content = output.getvalue().encode('utf-8')
+                uploaded = cloudinary.uploader.upload(
+                csv_content,
+                resource_type="raw",
+                public_id=f"{csv_file_name}.csv",
+                format="csv"
+            )
                 user_csv = UserCSV(
                     user=request.user,
                     name=csv_file_name,
-                    category='phone'  # Setting the category to "phone"
+                    category='phone',
+                    csv_file=uploaded['url']  # Setting the category to "phone"
                 )
-                user_csv.csv_file.save(f"{csv_file_name}.csv", ContentFile(csv_content))
+                
                 user_csv.save()
 
                 response = HttpResponse(output, content_type='text/csv')

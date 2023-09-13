@@ -34,7 +34,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_profile_picture(self, obj):
         if obj.profile_picture:
-            return f"https://djangoback-705982cd1fda.herokuapp.com{obj.profile_picture.url}"
+            return cloudinary_url(str(obj.profile_picture))[0]  # Cloudinary URL
         return None
 
 class GeneratePdfSerializer(serializers.Serializer):

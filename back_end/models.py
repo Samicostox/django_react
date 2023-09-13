@@ -15,9 +15,7 @@ class User(AbstractUser):
     password = models.CharField(max_length=255)
     is_email_valid = models.BooleanField(default=False)
     email_verification_code = models.CharField(max_length=6, blank=True, null=True)
-    profile_picture = models.ImageField(
-        upload_to='profile_pics/', null=True, blank=True, default="profile_pics/PHOTO-2023-09-04-11-14-23_vEOc0v8.jpg"
-    )
+    profile_picture = CloudinaryField('profile_picture', null=True, blank=True, default="https://res.cloudinary.com/dl2adjye7/image/upload/rgpqrf6envo22zzgnndfNone")
     university = models.ForeignKey(University, related_name='students', on_delete=models.SET_NULL, null=True, blank=True
     )  # ForeignKey to University model
 
