@@ -152,12 +152,15 @@ from urllib.parse import urlparse
 
 app = Celery('react_backend')
 
+# Retrieve the REDIS_URL environment variable or use a default value
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 parsed_url = urlparse(redis_url)
 
+# Configure Celery
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
+# Set the broker URL and visibility_timeout
 app.conf.broker_url = redis_url
 app.conf.broker_transport_options = {'visibility_timeout': 3600}
 
