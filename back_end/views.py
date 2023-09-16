@@ -1126,3 +1126,32 @@ class GenerateCustomRequirementsPDF(APIView):
             return Response({"msg": "PDF generated successfully"})
 
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class DeleteUserCSVView(APIView):
+    def post(self, request):
+        print("Received POST request for deletion")
+        
+        # Token-based authentication
+        token = request.data.get('token', None)
+        csv_id = request.data.get('csv_id')
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Fetch the CSV file by ID for the authenticated user
+        try:
+            user_csv = UserCSV.objects.get(id=csv_id, user=request.user)
+        except UserCSV.DoesNotExist:
+            raise Http404("CSV file not found")
+
+        # Delete the CSV file
+        user_csv.delete()
+        
+        return Response({"msg": "CSV file deleted successfully"}, status=status.HTTP_200_OK)
