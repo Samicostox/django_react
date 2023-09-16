@@ -103,7 +103,7 @@ def ask_gpt4(question):
     return answer
 
 @shared_task
-def generate_csv_and_save(user_id, user_list, personalize, email_template):
+def generate_csv_and_save(user_id, user_list, personalize, email_template,title):
     # Your logic here
     df = pd.DataFrame(user_list)
 
@@ -120,7 +120,7 @@ def generate_csv_and_save(user_id, user_list, personalize, email_template):
         writer.writerow(row.to_dict())
 
     output.seek(0)
-    csv_file_name = "generated_leads"
+    csv_file_name = title
 
     absolute_path = os.path.abspath(f"{csv_file_name}.csv")
     print(f"Saving file to {absolute_path}")
@@ -147,6 +147,8 @@ def generate_csv_and_save(user_id, user_list, personalize, email_template):
 class ProcessTextView(APIView):
     def post(self, request):
         token = request.data.get('token', None)
+        title = request.data['title']
+        
         
         if token is None:
             raise AuthenticationFailed('No token provided')
@@ -162,6 +164,7 @@ class ProcessTextView(APIView):
         if serializer.is_valid():
             sample_text = serializer.validated_data['sample_text']
             personalize = serializer.validated_data.get('personalize', False)
+            
 
             # Extracting emails and mixed info
             raw_blocks = sample_text.strip().split("\n\n")
@@ -201,7 +204,7 @@ class ProcessTextView(APIView):
 
             # Create a DataFrame from the user_list
             generate_csv_and_save.apply_async(
-                args=[request.user.id, user_list, personalize, email_template],
+                args=[request.user.id, user_list, personalize, email_template,title],
                 countdown=1  # Run task one second from now
             )
 
