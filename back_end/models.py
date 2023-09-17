@@ -52,3 +52,16 @@ class UserCSV(models.Model):
 
     def __str__(self):
         return f"CSV for {self.user.email} of category {self.category}"
+
+
+class Client(models.Model):
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)
+    email = models.EmailField(max_length=255)
+    company = models.CharField(max_length=255)
+    phone = models.CharField(max_length=20, null=True, blank=True)
+    message = models.TextField()
+    budget = models.CharField(max_length=255)  # Budget as a string
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} from {self.company}"

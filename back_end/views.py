@@ -11,9 +11,9 @@ from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 from cloudinary.uploader import upload
 
-from back_end.models import University, User, UserCSV, UserPDF
+from back_end.models import Client, University, User, UserCSV, UserPDF
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, GeneratePdfSerializer, GeneratePdfSerializer2, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
+from .serializers import ChatbotQuerySerializer, ClientSerializer, GeneratePdfSerializer, GeneratePdfSerializer2, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
@@ -1202,3 +1202,40 @@ class DeleteUserCSVView(APIView):
         user_csv.delete()
         
         return Response({"msg": "CSV file deleted successfully"}, status=status.HTTP_200_OK)
+
+
+class CreateClientView(APIView):
+    def post(self, request):
+        print("Received POST request for client creation")
+
+        # Token-based authentication
+       
+
+        # Create a new client
+        serializer = ClientSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"client": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class FetchAllClientsView(APIView):
+    def post(self, request):
+        print("Received POST request for fetching all clients")
+
+        # Token-based authentication
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Fetch all clients
+        all_clients = Client.objects.all()
+        serializer = ClientSerializer(all_clients, many=True)
+        
+        return Response({"clients": serializer.data}, status=status.HTTP_200_OK)

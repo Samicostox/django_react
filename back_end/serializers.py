@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Item, University, User, UserCSV, UserPDF
+from .models import Item, University, User, UserCSV, UserPDF, Client
 from cloudinary.utils import cloudinary_url 
 from urllib.parse import urlparse, urlunparse
 
@@ -86,3 +86,9 @@ class UserCSVSerializer(serializers.ModelSerializer):
         parsed_url = urlparse(obj.csv_file.url)
         secure_url = parsed_url._replace(scheme='https')
         return f"{urlunparse(secure_url)}.csv"
+    
+
+class ClientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = '__all__'

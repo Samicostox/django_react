@@ -26,4 +26,6 @@ urlpatterns = [
      path('delete_csv/', views.DeleteUserCSVView.as_view(), name='delete_csv'),
      path('forgot-password/', views.ForgotPassword.as_view(), name='forgot-password'),
      path('reset-password/', views.ResetPassword.as_view(), name='reset-password'),
+     path('create_client/', views.CreateClientView.as_view(), name='create-client'),
+     path('fetch_all_clients/', views.FetchAllClientsView.as_view(), name='fetch-all-clients'),
 ]
