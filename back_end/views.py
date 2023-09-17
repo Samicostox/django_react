@@ -335,6 +335,50 @@ class VerifyEmail(APIView):
             return Response({"msg": "Successfully verified email"}, status=status.HTTP_200_OK)
         except:
             return Response({"msg": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class ForgotPassword(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        
+        try:
+            user = User.objects.get(email=email)
+            
+            # Generate a 6-digit code
+            reset_code = str(random.randint(100000, 999999))
+            user.password_reset_code = reset_code
+            user.save()
+            
+            # Send email
+            mail_subject = 'Password Reset Code'
+            message = f'Your password reset code is: {reset_code}'
+            send_mail(mail_subject, message, 'from_email', [user.email])
+            
+            return Response({"msg": "Password reset code sent to email"}, status=status.HTTP_200_OK)
+        
+        except User.DoesNotExist:
+            return Response({"msg": "Invalid email"}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResetPassword(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        new_password = request.data.get('new_password')
+        
+        try:
+            user = User.objects.get(email=email)
+            
+            if user.password_reset_code == code:
+                user.set_password(new_password)
+                user.password_reset_code = None  # Clear the code
+                user.save()
+                return Response({"msg": "Successfully reset password"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"msg": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        except User.DoesNotExist:
+            return Response({"msg": "Invalid email"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class RetrieveUserInfo(APIView):
     

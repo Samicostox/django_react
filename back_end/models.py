@@ -17,7 +17,11 @@ class User(AbstractUser):
     email_verification_code = models.CharField(max_length=6, blank=True, null=True)
     profile_picture = CloudinaryField('profile_picture', null=True, blank=True, default="https://res.cloudinary.com/dl2adjye7/image/upload/rgpqrf6envo22zzgnndfNone")
     university = models.ForeignKey(University, related_name='students', on_delete=models.SET_NULL, null=True, blank=True
-    )  # ForeignKey to University model
+                                   
+    ) 
+     # ForeignKey to University model
+    # Add this line to your User model
+    password_reset_code = models.CharField(max_length=6, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
