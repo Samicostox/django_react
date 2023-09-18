@@ -26,10 +26,11 @@ class UniversitySerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     profile_picture = serializers.SerializerMethodField()
     university = UniversitySerializer(read_only=True)  # Add this line
+    
 
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'password', 'profile_picture', 'university')  # Add 'university'
+        fields = ('id', 'name', 'email', 'password', 'profile_picture', 'university', 'is_admin')  # Include 'is_superuser'
         extra_kwargs = {'password': {'write_only': True}}
 
     def get_profile_picture(self, obj):

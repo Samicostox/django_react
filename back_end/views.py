@@ -316,13 +316,18 @@ class LoginView(APIView):
                 token, created = Token.objects.get_or_create(user=user)  # This will get the token if it exists, otherwise it will create one.
                 image_url = None
                 if user.profile_picture:
-                    image_url = cloudinary_url(str(user.profile_picture),secure=True)[0]
+                    image_url = cloudinary_url(str(user.profile_picture), secure=True)[0]
 
-                return Response({"msg": "Successfully logged in!", "token": token.key, "university": user.university.name, "name" : user.name, "profile_picture" : image_url}, status=status.HTTP_200_OK)
+                message = "Successfully logged in!"
+
+                # Check if user is admin
+                if user.is_admin:
+                    message = "Admin logged in"
+
+                return Response({"msg": message, "token": token.key, "university": user.university.name if user.university else None, "name": user.name, "profile_picture": image_url}, status=status.HTTP_200_OK)
             else:
                 return Response({"msg": "Please verify your email first"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"msg": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
-    
 
 class VerifyEmail(APIView):
     def get(self, request, token):
@@ -1239,3 +1244,21 @@ class FetchAllClientsView(APIView):
         serializer = ClientSerializer(all_clients, many=True)
         
         return Response({"clients": serializer.data}, status=status.HTTP_200_OK)
+
+
+class FetchAllUsersView(APIView):
+    def get(self, request):
+        print("Received GET request for fetching all users")
+
+        # Token-based authentication
+      
+
+        # Fetch all users
+        all_users = User.objects.all()
+        serializer = UserSerializer(all_users, many=True)
+        
+        return Response({"users": serializer.data}, status=status.HTTP_200_OK)
+    
+
+
+

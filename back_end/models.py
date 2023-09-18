@@ -1,12 +1,14 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from cloudinary.models import CloudinaryField
+
 class Item(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
 
 class University(models.Model):
     name = models.CharField(max_length=255)
+
 
 class User(AbstractUser):
     username = None
@@ -19,6 +21,7 @@ class User(AbstractUser):
     university = models.ForeignKey(University, related_name='students', on_delete=models.SET_NULL, null=True, blank=True
                                    
     ) 
+    is_admin = models.BooleanField(default=False)
      # ForeignKey to University model
     # Add this line to your User model
     password_reset_code = models.CharField(max_length=6, blank=True, null=True)

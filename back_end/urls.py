@@ -28,4 +28,6 @@ urlpatterns = [
      path('reset-password/', views.ResetPassword.as_view(), name='reset-password'),
      path('create_client/', views.CreateClientView.as_view(), name='create-client'),
      path('fetch_all_clients/', views.FetchAllClientsView.as_view(), name='fetch-all-clients'),
+     path('fetch_all_users/', views.FetchAllUsersView.as_view(), name='fetch-all-users'),
+    
 ]
