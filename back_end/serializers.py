@@ -38,7 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
             return cloudinary_url(str(obj.profile_picture))[0]  # Cloudinary URL
         return None
 
-class GeneratePdfSerializer(serializers.Serializer):
+class GeneratePdfSerializer2(serializers.Serializer):
     token = serializers.CharField(max_length=255, required=True)
     title = serializers.CharField(max_length=255, required=True)
     date = serializers.CharField(max_length=255, required=True)
