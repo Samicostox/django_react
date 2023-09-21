@@ -13,7 +13,7 @@ from cloudinary.uploader import upload
 
 from back_end.models import Client, University, User, UserCSV, UserPDF
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, ClientSerializer, GeneratePdfSerializer, GeneratePdfSerializer2, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserPDFSerializer2, UserSerializer, VenueFetchSerializer
+from .serializers import ChatbotQuerySerializer, ClientSerializer, GeneratePdfSerializer, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserPDFSerializer2, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
