@@ -13,7 +13,7 @@ from cloudinary.uploader import upload
 
 from back_end.models import Client, University, User, UserCSV, UserPDF
 from react_backend import settings
-from .serializers import ChatbotQuerySerializer, ClientSerializer, GeneratePdfSerializer, GeneratePdfSerializer2, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserSerializer, VenueFetchSerializer
+from .serializers import ChatbotQuerySerializer, ClientSerializer, GeneratePdfSerializer, GeneratePdfSerializer2, TextSerializer, UniversitySerializer, UserCSVSerializer, UserPDFSerializer, UserPDFSerializer2, UserSerializer, VenueFetchSerializer
 import csv
 import re
 import spacy
@@ -713,6 +713,104 @@ class GenerateRequirementsPDF(APIView):
 
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
     
+
+class GenerateRequirementsPDF2(APIView):
+    def post(self, request):
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        serializer = GeneratePdfSerializer(data=request.data)
+        if serializer.is_valid():
+            question = serializer.validated_data['question']
+            user_title = serializer.validated_data.get('title')
+            user_date = serializer.validated_data.get('date')
+            user_university = serializer.validated_data.get('university')
+
+            buffer_first_page = generate_first_page_pdf(user_title, user_date, user_university)
+
+            intro_data = {
+                'name_of_project': request.data.get('name_of_project'),
+                'type_of_project': request.data.get('type_of_project'),
+                'name_of_client_company': request.data.get('name_of_client_company'),
+                'consultant_name': request.data.get('consultant_name'),
+                
+            }
+            buffer_intro = generate_intro_pdf(intro_data,user_university,question)
+
+            buffer_requirements, answer = generate_requirements_pdf(question)  # Get answer here
+            functional_titles, functional_requirements, non_functional_titles, non_functional_requirements = process_requirements(answer)
+            
+
+            # Combine PDFs
+            buffer_first_page.seek(0)
+            buffer_intro.seek(0)
+            buffer_requirements.seek(0)
+            
+            pdf_reader1 = PdfReader(buffer_first_page)
+            pdf_reader2 = PdfReader(buffer_intro)
+            pdf_reader3 = PdfReader(buffer_requirements)
+            
+            pdf_writer = PdfWriter()
+
+            for i in range(len(pdf_reader1.pages)):
+                pdf_writer.add_page(pdf_reader1.pages[i])
+            for i in range(len(pdf_reader2.pages)):
+                pdf_writer.add_page(pdf_reader2.pages[i])
+            for i in range(len(pdf_reader3.pages)):
+                pdf_writer.add_page(pdf_reader3.pages[i])
+
+            final_pdf_buffer = io.BytesIO()
+            pdf_writer.write(final_pdf_buffer)
+            pdf_content = final_pdf_buffer.getvalue()
+            final_pdf_buffer.close()
+
+            pdf_name = f"final_document_{request.user.id}.pdf"
+            pdf_file = ContentFile(pdf_content, name=pdf_name)
+            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name = intro_data['name_of_project'], functional_titles=functional_titles, functional_requirements=functional_requirements, non_functional_titles=non_functional_titles, non_functional_requirements=non_functional_requirements)
+
+            ##response = HttpResponse(pdf_content, content_type='application/pdf')
+            ##response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
+            pdf_url = user_pdf.pdf_file.url
+            return Response({
+                "pdf_url": pdf_url,
+                "functional_titles": functional_titles,
+                "functional_requirements": functional_requirements,
+                "non_functional_titles": non_functional_titles,
+                "non_functional_requirements": non_functional_requirements
+            })
+
+        return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+    
+class RetrievePDF(APIView):
+    def get_object(self, pdf_id):
+        try:
+            return UserPDF.objects.filter(pk=pdf_id)
+        except UserPDF.DoesNotExist:
+            raise Http404
+    def post(self, request):
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Continue with existing logic
+        pdf = self
+        user_pdf = self.get_object(request.pdf_id)
+        serializer = UserPDFSerializer2(user_pdf, many=False)
+        return Response(serializer.data)
+    
 class RetrieveUserPDFs(APIView):
     def get_object(self, user):
         try:
@@ -736,6 +834,32 @@ class RetrieveUserPDFs(APIView):
         user_pdfs = self.get_object(request.user)
         serializer = UserPDFSerializer(user_pdfs, many=True)
         return Response(serializer.data)
+
+class FetchUserPDFsView(APIView):
+    def post(self, request):
+        print("Received POST request")
+        
+        # Token-based authentication
+        token = request.data.get('token', None)
+        if token is None:
+            raise AuthenticationFailed('No token provided')
+
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Fetch all CSV files of category 'phone' for the authenticated user
+        try:
+            user_pdfs = UserPDF.objects.filter(user=request.user)
+        except UserPDF.DoesNotExist:
+            return Response({"msg": "No CSV files found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize the queryset
+        serializer = UserPDFSerializer(user_pdfs, many=True)
+        
+        return Response({"pdf_files": serializer.data}, status=status.HTTP_200_OK)
     
 def fetch_venues(api_key, location, radius, keyword):
     base_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"

@@ -45,7 +45,21 @@ class GeneratePdfSerializer(serializers.Serializer):
     university = serializers.ChoiceField(choices=[('1', 'Birmingham'), ('2', 'Warwick')], required=True)
     question = serializers.CharField()
 
-class GeneratePdfSerializer2(serializers.Serializer):
+class UserPDFSerializer2(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())  # Assuming you have the User model imported
+    pdf_file = serializers.FileField()
+    name = serializers.CharField(max_length=255, default='safequeen')
+    created_at = serializers.DateTimeField(read_only=True)  # Setting this to read_only because it's auto_now_add
+    functional_titles = serializers.ListField(child=serializers.CharField(max_length=200, default='Authentication Pages'), default=list, allow_empty=True)
+    functional_requirements = serializers.ListField(child=serializers.ListField(child=serializers.CharField(max_length=500, default='The web app must allow users to register and login using email and password.'), default=list, allow_empty=True), default=list, allow_empty=True)
+    non_functional_titles = serializers.ListField(child=serializers.CharField(max_length=200, default='Reliability'), default=list, allow_empty=True)
+    non_functional_requirements = serializers.ListField(child=serializers.ListField(child=serializers.CharField(max_length=500, default='The web app must have a minimum uptime of 99.99%.'), default=list, allow_empty=True), default=list, allow_empty=True)
+
+    class Meta:
+        model = UserPDF
+        fields = ('user', 'pdf_file', 'name', 'created_at', 'functional_titles', 'functional_requirements', 'non_functional_titles', 'non_functional_requirements')
+
+class GeneratePdfSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=255, required=True)
     title = serializers.CharField(max_length=255, required=True)
     date = serializers.CharField(max_length=255, required=True)
@@ -61,16 +75,32 @@ class VenueFetchSerializer(serializers.Serializer):
     csv_file_name = serializers.CharField(max_length=100)
 
 
+class UserPDFSerializer2(serializers.ModelSerializer):
+    pdf_file = serializers.SerializerMethodField()
+    name = serializers.CharField(max_length=255, required=True)
+    class Meta:
+        model = UserPDF
+        fields = ('id', 'pdf_file', 'name', 'functional_titles', 'functional_requirements', 'non_functional_titles', 'non_functional_requirements')
+
+    def get_pdf_file(self, obj):
+        parsed_url = urlparse(obj.pdf_file.url)
+        secure_url = parsed_url._replace(scheme='https')
+        return f"{urlunparse(secure_url)}.pdf"
+
+
 class UserPDFSerializer(serializers.ModelSerializer):
     pdf_file = serializers.SerializerMethodField()
     name = serializers.CharField(max_length=255, required=True)
+
     class Meta:
         model = UserPDF
         fields = ('id', 'pdf_file','name')
 
     
     def get_pdf_file(self, obj):
-        return f"https://djangoback-705982cd1fda.herokuapp.com{obj.pdf_file.url}"
+        parsed_url = urlparse(obj.pdf_file.url)
+        secure_url = parsed_url._replace(scheme='https')
+        return f"{urlunparse(secure_url)}.pdf"
     
 
 class UserCSVSerializer(serializers.ModelSerializer):
