@@ -18,5 +18,14 @@ def main():
     execute_from_command_line(sys.argv)
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "react_backend.settings")
+    
+    if os.environ.get('DJANGO_ENV') == 'production':
+        os.environ["DJANGO_SETTINGS_MODULE"] = "react_backend.settings_local"
+    else:
+        os.environ["DJANGO_SETTINGS_MODULE"] = "react_backend.settings_production"
+    
+    from django.core.management import execute_from_command_line
+
+    execute_from_command_line(sys.argv)
