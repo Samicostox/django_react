@@ -9,11 +9,14 @@ https://docs.djangoproject.com/en/4.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
+import certifi
 from decouple import Config
 from pathlib import Path
 import os
 import django_heroku
 import dj_database_url
+from kombu import Exchange, Queue
+import ssl
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -159,17 +162,20 @@ from urllib.parse import urlparse
 
 app = Celery('react_backend')
 
-# Retrieve the REDIS_URL environment variable or use a default value
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 parsed_url = urlparse(redis_url)
 
-# Configure Celery
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
-# Set the broker URL and visibility_timeout
-app.conf.broker_url = redis_url
-app.conf.broker_transport_options = {'visibility_timeout': 3600}
+ssl_options = {
+    'ssl_cert_reqs': ssl.CERT_REQUIRED,
+    'ssl_ca_certs': certifi.where(),
+}
+
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'fallback_value_if_not_found')
+app.conf.broker_url = CELERY_BROKER_URL
+app.conf.broker_transport_options = {'visibility_timeout': 3600, 'ssl': ssl_options}
 
 
 # Email settings
