@@ -1,5 +1,5 @@
-from decouple import Config
-config = Config()
+from decouple import Config as DecoupleConfig
+config = DecoupleConfig()
 from .settings import *
 
 DEBUG = True
