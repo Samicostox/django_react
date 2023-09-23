@@ -162,18 +162,24 @@ from urllib.parse import urlparse
 
 app = Celery('react_backend')
 
+# Retrieve the REDIS_URL environment variable or use a default value
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 parsed_url = urlparse(redis_url)
 
+# Configure Celery
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
+# SSL settings for Redis
 ssl_options = {
     'ssl_cert_reqs': ssl.CERT_REQUIRED,
     'ssl_ca_certs': certifi.where(),
 }
 
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'fallback_value_if_not_found')
+# Use environment variables to get sensitive information
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')  # Set the correct fallback value here
+
+# Set the broker URL and visibility_timeout with SSL options
 app.conf.broker_url = CELERY_BROKER_URL
 app.conf.broker_transport_options = {'visibility_timeout': 3600, 'ssl': ssl_options}
 
@@ -186,7 +192,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'sami.ribardiere@gmail.com'  # Your email address here
 EMAIL_HOST_PASSWORD = 'hjruuwlyfhmasorg'  # Your password here
 
-CELERY_BROKER_URL = 'rediss://:p564dd1c83b2a05a09eb96c1c2906a46560199317cb03b557969373868bd59c7f@ec2-34-254-169-3.eu-west-1.compute.amazonaws.com:10470'
+#CELERY_BROKER_URL = 'rediss://:p564dd1c83b2a05a09eb96c1c2906a46560199317cb03b557969373868bd59c7f@ec2-34-254-169-3.eu-west-1.compute.amazonaws.com:10470'
 
 
 CLOUDINARY_STORAGE = {
