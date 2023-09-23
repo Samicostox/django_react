@@ -1,4 +1,5 @@
-from distutils import config
+from decouple import Config
+config = Config()
 from .settings import *
 
 DEBUG = True
