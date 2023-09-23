@@ -88,6 +88,22 @@ WSGI_APPLICATION = 'react_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'd7et0ekb5ek6o5',
+        'USER': 'wlatjsrmbdtakt',
+        'PASSWORD': '13299bac0074d0ab5a99deef2bc90b2673b61e7af803134c72de8515b6776620',
+        'HOST': 'ec2-54-195-144-105.eu-west-1.compute.amazonaws.com',
+        'PORT': '5432',
+        
+    }
+}
+
+
+
+db_from_env = dj_database_url.config(default=os.environ.get('HEROKU_POSTGRESQL_COPPER_URL'), conn_max_age=600)
+DATABASES['default'].update(db_from_env)
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
