@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from cloudinary.models import CloudinaryField
 from django.contrib.postgres.fields import ArrayField
+from django.forms import JSONField
 
 class Item(models.Model):
     name = models.CharField(max_length=100)
@@ -39,9 +40,11 @@ class UserPDF(models.Model):
     name = models.CharField(max_length=255, default = 'safequeen')
     created_at = models.DateTimeField(auto_now_add=True)
     functional_titles = ArrayField(models.CharField(max_length=200, default='Authentication Pages'), blank=True, default=list)
-    functional_requirements = ArrayField(ArrayField(models.CharField(max_length=500, default='The web app must allow users to register and login using email and password.'), blank=True,default=list), blank=True, default=list)
     non_functional_titles = ArrayField(models.CharField(max_length=200, default='Reliability'), blank=True, default=list)
-    non_functional_requirements = ArrayField(ArrayField(models.CharField(max_length=500, default='The web app must have a minimum uptime of 99.99%.'), blank=True,default=list), blank=True, default=list)
+    non_functional_requirements = models.JSONField(blank=True, default=list)
+    functional_requirements = models.JSONField(blank=True, default=list)
+
+    
       
 
     def __str__(self):

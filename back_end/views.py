@@ -1,3 +1,4 @@
+import json
 from celery import shared_task
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
@@ -652,7 +653,7 @@ class GenerateRequirementsPDF(APIView):
         except Token.DoesNotExist:
             raise AuthenticationFailed('Invalid token')
 
-        serializer = GeneratePdfSerializer(data=request.data)
+        serializer = GeneratePdfSerializer2(data=request.data)
         if serializer.is_valid():
             question = serializer.validated_data['question']
             user_title = serializer.validated_data.get('title')
@@ -666,54 +667,85 @@ class GenerateRequirementsPDF(APIView):
                 'type_of_project': request.data.get('type_of_project'),
                 'name_of_client_company': request.data.get('name_of_client_company'),
                 'consultant_name': request.data.get('consultant_name'),
-                
             }
-            buffer_intro = generate_intro_pdf(intro_data,user_university,question)
+            buffer_intro = generate_intro_pdf(intro_data, user_university, question)
 
-            buffer_requirements, answer = generate_requirements_pdf(question)  # Get answer here
+            buffer_requirements, answer = generate_requirements_pdf(question)
             functional_titles, functional_requirements, non_functional_titles, non_functional_requirements = process_requirements(answer)
-            
 
             # Combine PDFs
             buffer_first_page.seek(0)
             buffer_intro.seek(0)
             buffer_requirements.seek(0)
-            
+
             pdf_reader1 = PdfReader(buffer_first_page)
             pdf_reader2 = PdfReader(buffer_intro)
             pdf_reader3 = PdfReader(buffer_requirements)
-            
+
             pdf_writer = PdfWriter()
 
-            for i in range(len(pdf_reader1.pages)):
-                pdf_writer.add_page(pdf_reader1.pages[i])
-            for i in range(len(pdf_reader2.pages)):
-                pdf_writer.add_page(pdf_reader2.pages[i])
-            for i in range(len(pdf_reader3.pages)):
-                pdf_writer.add_page(pdf_reader3.pages[i])
+            for page in pdf_reader1.pages:
+                pdf_writer.add_page(page)
+            for page in pdf_reader2.pages:
+                pdf_writer.add_page(page)
+            for page in pdf_reader3.pages:
+                pdf_writer.add_page(page)
 
             final_pdf_buffer = io.BytesIO()
             pdf_writer.write(final_pdf_buffer)
-            pdf_content = final_pdf_buffer.getvalue()
-            final_pdf_buffer.close()
+            final_pdf_buffer.seek(0)
 
-            pdf_name = f"final_document_{request.user.id}.pdf"
-            pdf_file = ContentFile(pdf_content, name=pdf_name)
-            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name = intro_data['name_of_project'])
+            print(type(final_pdf_buffer.getvalue())) 
 
-            ##response = HttpResponse(pdf_content, content_type='application/pdf')
-            ##response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
-            
-            return Response({
-                "functional_titles": functional_titles,
-                "functional_requirements": functional_requirements,
-                "non_functional_titles": non_functional_titles,
-                "non_functional_requirements": non_functional_requirements
-            })
+            with open('local_test.pdf', 'wb') as f:
+                f.write(final_pdf_buffer.getvalue())
+
+            pdf_name = f"final_document22_{request.user.id}"
+
+            # Upload PDF to Cloudinary
+            try:
+    # Encoding to bytes and uploading, similar to the CSV snippet
+                pdf_content = final_pdf_buffer.getvalue()  # PDF content is already in bytes, so no need to encode
+                uploaded = cloudinary.uploader.upload(
+                    pdf_content,
+                    resource_type="raw",
+                    public_id=f"{pdf_name}.pdf",
+                    format="pdf"
+                )
+                final_pdf_buffer.close()
+                
+                if 'url' in uploaded:
+                    pdf_url = uploaded['url']
+                    
+                    user_pdf = UserPDF.objects.create(
+                        user=request.user,
+                        pdf_file=pdf_url,
+                        name=intro_data['name_of_project'],
+                        functional_titles=functional_titles,
+                        functional_requirements=functional_requirements,
+                        non_functional_titles=non_functional_titles,
+                        non_functional_requirements=non_functional_requirements
+                    )
+                    user_pdf.save()
+                    
+                    # Return a response or perform any other operation as required
+
+           
+                    return Response({
+                        "pdf_url": pdf_url,
+                        "functional_titles": functional_titles,
+                        "functional_requirements": functional_requirements,
+                        "non_functional_titles": non_functional_titles,
+                        "non_functional_requirements": non_functional_requirements
+                    })
+
+            except Exception as e:
+                final_pdf_buffer.close()
+                return Response({"msg": f"Failed to upload PDF: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
     
-
+'''''
 class GenerateRequirementsPDF2(APIView):
     def post(self, request):
         token = request.data.get('token', None)
@@ -787,7 +819,7 @@ class GenerateRequirementsPDF2(APIView):
             })
 
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
-    
+'''
 class RetrievePDF(APIView):
     def get_object(self, pdf_id):
         try:
@@ -857,7 +889,7 @@ class FetchUserPDFsView(APIView):
             return Response({"msg": "No CSV files found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Serialize the queryset
-        serializer = UserPDFSerializer(user_pdfs, many=True)
+        serializer = UserPDFSerializer2(user_pdfs, many=True)
         
         return Response({"pdf_files": serializer.data}, status=status.HTTP_200_OK)
     
