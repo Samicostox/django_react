@@ -255,40 +255,44 @@ class AskChatbotView(APIView):
 
 
 class SignUpView(APIView):
-   def post(self, request):
-    serializer = UserSerializer(data=request.data)
-    if serializer.is_valid():
-        user = serializer.save()
-        user.set_password(serializer.validated_data['password'])
-        
-        # Generate a 6-digit code
-        verification_code = str(random.randint(100000, 999999))
-        user.email_verification_code = verification_code
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            user.set_password(serializer.validated_data['password'])
+            
+            # Generate a 6-digit code
+            verification_code = str(random.randint(100000, 999999))
+            user.email_verification_code = verification_code
 
-        # Handle profile picture (if provided)
-        image_file = request.FILES.get('profile_picture', None)
-        if image_file:
-            uploaded = upload(image_file, resource_type="image")
-            user.profile_picture = uploaded['public_id']
+            # Handle profile picture (if provided)
+            image_file = request.FILES.get('profile_picture', None)
+            if image_file:
+                uploaded = upload(image_file, resource_type="image")
+                user.profile_picture = uploaded['public_id']
+            else:
+                # Set default image if no image is provided
+                user.profile_picture = "https://res.cloudinary.com/dl2adjye7/image/upload/v1694625120/rgpqrf6envo22zzgnndf.png"
 
-        # Handle university (if provided)
-        university_id = request.data.get('university', None)  # Replace 'university' with the field name in your frontend form
-        if university_id:
-            try:
-                university = University.objects.get(id=university_id)
-                user.university = university
-            except University.DoesNotExist:
-                return Response({"error": "University does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+            # Handle university (if provided)
+            university_id = request.data.get('university', None)
+            if university_id:
+                try:
+                    university = University.objects.get(id=university_id)
+                    user.university = university
+                except University.DoesNotExist:
+                    return Response({"error": "University does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user.save()
+            user.save()
 
-        # Send email
-        mail_subject = 'Activate your account.'
-        message = f'Your verification code is: {verification_code}'
-        send_mail(mail_subject, message, 'from_email', [user.email])
+            # Send email
+            mail_subject = 'Activate your account.'
+            message = f'Your verification code is: {verification_code}'
+            send_mail(mail_subject, message, 'from_email', [user.email])
 
-        return Response({"msg": "Successfully signed up! Please check your email for the verification code"}, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"msg": "Successfully signed up! Please check your email for the verification code"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class VerifyEmailCode(APIView):
     def post(self, request):
