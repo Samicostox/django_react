@@ -350,7 +350,11 @@ class VerifyEmailCode(APIView):
                 
                 # Generate and return a token after successful email verification
                 token, created = Token.objects.get_or_create(user=user)
-                return Response({"msg": "Successfully verified email", "token": token.key}, status=status.HTTP_200_OK)
+                image_url = None
+                if user.profile_picture:
+                    image_url = cloudinary_url(str(user.profile_picture), secure=True)[0]
+
+                return Response({"msg": "Successfully verified email", "token": token.key, "university": user.university.name if user.university else None, "name": user.name, "profile_picture": image_url}, status=status.HTTP_200_OK)
             else:
                 return Response({"msg": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
