@@ -334,17 +334,28 @@ class LoginView(APIView):
                 return Response({"msg": "Please verify your email first"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"msg": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
 
-class VerifyEmail(APIView):
-    def get(self, request, token):
+from rest_framework.authtoken.models import Token  # Import Token model
+
+class VerifyEmailCode(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        
         try:
-            token_obj = Token.objects.get(key=token)
-            user = token_obj.user   
-            if not user.is_email_valid:
+            user = User.objects.get(email=email)
+            if user.email_verification_code == code:
                 user.is_email_valid = True
+                user.email_verification_code = None  # Clear the code
                 user.save()
-            return Response({"msg": "Successfully verified email"}, status=status.HTTP_200_OK)
-        except:
-            return Response({"msg": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Generate and return a token after successful email verification
+                token, created = Token.objects.get_or_create(user=user)
+                return Response({"msg": "Successfully verified email", "token": token.key}, status=status.HTTP_200_OK)
+            else:
+                return Response({"msg": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({"msg": "Invalid email"}, status=status.HTTP_400_BAD_REQUEST)
+
         
 
 class ForgotPassword(APIView):
