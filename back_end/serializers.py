@@ -60,14 +60,19 @@ class UserPDFSerializer2(serializers.ModelSerializer):
     type_of_project = serializers.CharField(max_length=255, default='', allow_blank=True)
     name_of_client_company = serializers.CharField(max_length=255, default='', allow_blank=True)
     consultant_name = serializers.CharField(max_length=255, default='', allow_blank=True)
+    scope = serializers.CharField(max_length=255, default='', allow_blank=True)
 
     class Meta:
         model = UserPDF
         fields = (
-            'user', 'pdf_file', 'name', 'created_at', 'functional_titles', 'functional_requirements', 
+            'id','user', 'pdf_file', 'name', 'created_at', 'functional_titles', 'functional_requirements', 
             'non_functional_titles', 'non_functional_requirements', 'name_of_project', 'type_of_project', 
-            'name_of_client_company', 'consultant_name'
+            'name_of_client_company', 'consultant_name','scope'
         )
+    def get_pdf_file(self, obj):
+        parsed_url = urlparse(obj.pdf_file.url)
+        secure_url = parsed_url._replace(scheme='https')
+        return f"{urlunparse(secure_url)}.pdf"
 
 
 class GeneratePdfSerializer(serializers.Serializer):
@@ -85,8 +90,8 @@ class VenueFetchSerializer(serializers.Serializer):
     keyword = serializers.CharField(max_length=100)
     csv_file_name = serializers.CharField(max_length=100)
 
-
-class UserPDFSerializer2(serializers.ModelSerializer):
+'''
+class UserPDFSerializer3(serializers.ModelSerializer):
     pdf_file = serializers.SerializerMethodField()
     name = serializers.CharField(max_length=255, required=True)
     class Meta:
@@ -97,7 +102,7 @@ class UserPDFSerializer2(serializers.ModelSerializer):
         parsed_url = urlparse(obj.pdf_file.url)
         secure_url = parsed_url._replace(scheme='https')
         return f"{urlunparse(secure_url)}.pdf"
-
+'''
 
 class UserPDFSerializer(serializers.ModelSerializer):
     pdf_file = serializers.SerializerMethodField()

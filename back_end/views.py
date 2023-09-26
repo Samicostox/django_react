@@ -748,6 +748,7 @@ class GenerateRequirementsPDF(APIView):
                         type_of_project=intro_data['type_of_project'],
                         name_of_client_company=intro_data['name_of_client_company'],
                         consultant_name=intro_data['consultant_name'],
+                        scope = question,
                     )
                     user_pdf.save()
                     
@@ -1301,6 +1302,21 @@ class GenerateCustomRequirementsPDF(APIView):
 
         serializer = GeneratePdfSerializer2(data=request.data)
         if serializer.is_valid():
+            
+            pdf_id = request.data.get('pdf_id', None)
+            if pdf_id is None:
+                return Response({"msg": "No PDF ID provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                user_pdf = UserPDF.objects.get(id=pdf_id)
+            except UserPDF.DoesNotExist:
+                return Response({"msg": "Invalid PDF ID"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if the user is the owner of the PDF
+            if user_pdf.user != request.user:
+                return Response({"msg": "You do not have permission to update this PDF"}, status=status.HTTP_403_FORBIDDEN)
+            
+            
             # Extracting data from the request
             functional_titles = request.data.get('functional_titles', [])
             functional_requirements = request.data.get('functional_requirements', [])
@@ -1308,20 +1324,20 @@ class GenerateCustomRequirementsPDF(APIView):
             non_functional_requirements = request.data.get('non_functional_requirements', [])
             
             intro_data = {
-                'name_of_project': request.data.get('name_of_project'),
-                'type_of_project': request.data.get('type_of_project'),
-                'name_of_client_company': request.data.get('name_of_client_company'),
-                'consultant_name': request.data.get('consultant_name'),
+                'name_of_project': request.data.get('name_of_project', ''),
+                'type_of_project': request.data.get('type_of_project', ''),
+                'name_of_client_company': request.data.get('name_of_client_company', ''),
+                'consultant_name': request.data.get('consultant_name', ''),
             }
             
             user_title = serializer.validated_data.get('title')
             user_date = serializer.validated_data.get('date')
             user_university = serializer.validated_data.get('university')
+            scope = serializer.validated_data.get('question')
 
             buffer_first_page = generate_first_page_pdf(user_title, user_date, user_university)
-            buffer_intro = generate_intro_pdf(intro_data, user_university, "Custom Question")  # Replace "Custom Question" as needed
+            buffer_intro = generate_intro_pdf(intro_data, user_university, scope)
             
-            # Assuming you have a function to generate requirements PDF based on the lists
             buffer_requirements = generate_requirements_pdf_from_lists(
                 functional_titles, functional_requirements,
                 non_functional_titles, non_functional_requirements
@@ -1338,25 +1354,56 @@ class GenerateCustomRequirementsPDF(APIView):
             
             pdf_writer = PdfWriter()
 
-            for i in range(len(pdf_reader1.pages)):
-                pdf_writer.add_page(pdf_reader1.pages[i])
-            for i in range(len(pdf_reader2.pages)):
-                pdf_writer.add_page(pdf_reader2.pages[i])
-            for i in range(len(pdf_reader3.pages)):
-                pdf_writer.add_page(pdf_reader3.pages[i])
+            for page in pdf_reader1.pages:
+                pdf_writer.add_page(page)
+            for page in pdf_reader2.pages:
+                pdf_writer.add_page(page)
+            for page in pdf_reader3.pages:
+                pdf_writer.add_page(page)
 
             final_pdf_buffer = io.BytesIO()
             pdf_writer.write(final_pdf_buffer)
-            pdf_content = final_pdf_buffer.getvalue()
-            final_pdf_buffer.close()
+            final_pdf_buffer.seek(0)
 
-            pdf_name = f"final_document_{request.user.id}.pdf"
-            pdf_file = ContentFile(pdf_content, name=pdf_name)
-            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name=intro_data['name_of_project'])
+            pdf_name = f"{intro_data['name_of_project']}_{request.user.id}"
 
-            return Response({"msg": "PDF generated successfully"})
+            # Upload PDF to Cloudinary
+            try:
+                pdf_content = final_pdf_buffer.getvalue()
+                uploaded = cloudinary.uploader.upload(
+                    pdf_content,
+                    resource_type="raw",
+                    public_id=f"{pdf_name}.pdf",
+                    format="pdf"
+                )
+                final_pdf_buffer.close()
+                
+                if 'url' in uploaded:
+                    pdf_url = uploaded['url']
+                    
+                    # Update the UserPDF object
+                    user_pdf.pdf_file = pdf_url
+                    user_pdf.name = intro_data['name_of_project']
+                    user_pdf.functional_titles = functional_titles
+                    user_pdf.functional_requirements = functional_requirements
+                    user_pdf.non_functional_titles = non_functional_titles
+                    user_pdf.non_functional_requirements = non_functional_requirements
+                    user_pdf.name_of_project = intro_data['name_of_project']
+                    user_pdf.type_of_project = intro_data['type_of_project']
+                    user_pdf.name_of_client_company = intro_data['name_of_client_company']
+                    user_pdf.consultant_name = intro_data['consultant_name']
+                    user_pdf.scope = scope
+                    user_pdf.save()
+                    
+                    return Response({"msg": "PDF generated and uploaded successfully", "pdf_url": pdf_url})
+
+            except Exception as e:
+                final_pdf_buffer.close()
+                return Response({"msg": f"Failed to upload PDF: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 

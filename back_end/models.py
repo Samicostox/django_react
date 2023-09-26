@@ -47,6 +47,7 @@ class UserPDF(models.Model):
     type_of_project = models.CharField(max_length=255, blank=True, default='')
     name_of_client_company = models.CharField(max_length=255, blank=True, default='')
     consultant_name = models.CharField(max_length=255, blank=True, default='')
+    scope = models.CharField(max_length=10000, blank=True, default='')
 
     
       
