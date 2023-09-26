@@ -719,7 +719,7 @@ class GenerateRequirementsPDF(APIView):
             with open('local_test.pdf', 'wb') as f:
                 f.write(final_pdf_buffer.getvalue())
 
-            pdf_name = f"final_document22_{request.user.id}"
+            pdf_name = f"{intro_data['name_of_project']}_{request.user.id}"
 
             # Upload PDF to Cloudinary
             try:
@@ -743,7 +743,11 @@ class GenerateRequirementsPDF(APIView):
                         functional_titles=functional_titles,
                         functional_requirements=functional_requirements,
                         non_functional_titles=non_functional_titles,
-                        non_functional_requirements=non_functional_requirements
+                        non_functional_requirements=non_functional_requirements,
+                        name_of_project=intro_data['name_of_project'],
+                        type_of_project=intro_data['type_of_project'],
+                        name_of_client_company=intro_data['name_of_client_company'],
+                        consultant_name=intro_data['consultant_name'],
                     )
                     user_pdf.save()
                     

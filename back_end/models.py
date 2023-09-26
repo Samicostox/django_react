@@ -43,6 +43,10 @@ class UserPDF(models.Model):
     non_functional_titles = ArrayField(models.CharField(max_length=200, default='Reliability'), blank=True, default=list)
     non_functional_requirements = models.JSONField(blank=True, default=list)
     functional_requirements = models.JSONField(blank=True, default=list)
+    name_of_project = models.CharField(max_length=255, blank=True, default='')
+    type_of_project = models.CharField(max_length=255, blank=True, default='')
+    name_of_client_company = models.CharField(max_length=255, blank=True, default='')
+    consultant_name = models.CharField(max_length=255, blank=True, default='')
 
     
       

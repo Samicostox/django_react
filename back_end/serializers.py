@@ -54,10 +54,21 @@ class UserPDFSerializer2(serializers.ModelSerializer):
     functional_requirements = serializers.ListField(child=serializers.ListField(child=serializers.CharField(max_length=500, default='The web app must allow users to register and login using email and password.'), default=list, allow_empty=True), default=list, allow_empty=True)
     non_functional_titles = serializers.ListField(child=serializers.CharField(max_length=200, default='Reliability'), default=list, allow_empty=True)
     non_functional_requirements = serializers.ListField(child=serializers.ListField(child=serializers.CharField(max_length=500, default='The web app must have a minimum uptime of 99.99%.'), default=list, allow_empty=True), default=list, allow_empty=True)
+    
+    # New fields
+    name_of_project = serializers.CharField(max_length=255, default='', allow_blank=True)
+    type_of_project = serializers.CharField(max_length=255, default='', allow_blank=True)
+    name_of_client_company = serializers.CharField(max_length=255, default='', allow_blank=True)
+    consultant_name = serializers.CharField(max_length=255, default='', allow_blank=True)
 
     class Meta:
         model = UserPDF
-        fields = ('user', 'pdf_file', 'name', 'created_at', 'functional_titles', 'functional_requirements', 'non_functional_titles', 'non_functional_requirements')
+        fields = (
+            'user', 'pdf_file', 'name', 'created_at', 'functional_titles', 'functional_requirements', 
+            'non_functional_titles', 'non_functional_requirements', 'name_of_project', 'type_of_project', 
+            'name_of_client_company', 'consultant_name'
+        )
+
 
 class GeneratePdfSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=255, required=True)
