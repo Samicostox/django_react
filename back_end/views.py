@@ -11,6 +11,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
 from cloudinary.uploader import upload
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from back_end.models import Client, University, User, UserCSV, UserPDF
 from react_backend import settings
@@ -255,6 +257,25 @@ class AskChatbotView(APIView):
 
 
 class SignUpView(APIView):
+
+    @swagger_auto_schema(
+        operation_description="Creates a new user and sends a verification code to the user's email.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['username', 'password', 'email'],  # List all required fields
+            properties={
+                'username': openapi.Schema(type=openapi.TYPE_STRING, description='Username of the user.'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password of the user.'),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, description='Email of the user.'),
+                'profile_picture': openapi.Schema(type=openapi.TYPE_FILE, description='Profile picture of the user.', format='file'),
+                'university': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the university the user is associated with.'),
+            },
+        ),
+        responses={
+            201: 'Successfully signed up! Please check your email for the verification code',
+            400: 'Bad Request',
+        },
+    )
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -1316,7 +1337,7 @@ class GenerateCustomRequirementsPDF(APIView):
             if user_pdf.user != request.user:
                 return Response({"msg": "You do not have permission to update this PDF"}, status=status.HTTP_403_FORBIDDEN)
             
-            
+
             # Extracting data from the request
             functional_titles = request.data.get('functional_titles', [])
             functional_requirements = request.data.get('functional_requirements', [])
