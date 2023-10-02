@@ -699,6 +699,7 @@ class GenerateRequirementsPDF(APIView):
             user_title = serializer.validated_data.get('title')
             user_date = serializer.validated_data.get('date')
             user_university = serializer.validated_data.get('university')
+            university = University.objects.get(pk=user_university)
 
             buffer_first_page = generate_first_page_pdf(user_title, user_date, user_university)
 
@@ -755,11 +756,12 @@ class GenerateRequirementsPDF(APIView):
                 final_pdf_buffer.close()
                 
                 if 'url' in uploaded:
-                    pdf_url = uploaded['url']
+                    secure_url = uploaded['url'].replace('http:', 'https:')
+                    #pdf_url = uploaded['url']
                     
                     user_pdf = UserPDF.objects.create(
                         user=request.user,
-                        pdf_file=pdf_url,
+                        pdf_file=secure_url,
                         name=intro_data['name_of_project'],
                         functional_titles=functional_titles,
                         functional_requirements=functional_requirements,
@@ -770,6 +772,9 @@ class GenerateRequirementsPDF(APIView):
                         name_of_client_company=intro_data['name_of_client_company'],
                         consultant_name=intro_data['consultant_name'],
                         scope = question,
+                        title = user_title,
+                        date = user_date,
+                        university = university,
                     )
                     user_pdf.save()
                     
@@ -777,94 +782,29 @@ class GenerateRequirementsPDF(APIView):
 
            
                     return Response({
-                        "pdf_url": pdf_url,
+                        "pdf_file": secure_url,
                         "functional_titles": functional_titles,
                         "functional_requirements": functional_requirements,
                         "non_functional_titles": non_functional_titles,
-                        "non_functional_requirements": non_functional_requirements
+                        "non_functional_requirements": non_functional_requirements,
+                        "name":intro_data['name_of_project'],
+                        "id":user_pdf.pk,
+                        "title": user_title,
+                        "date": user_date,
+                        "university": university.pk,
+                        "type_of_project": intro_data['type_of_project'],
+                        "name_of_client_company": intro_data['name_of_client_company'],
+                        "consultant_name": intro_data['consultant_name'],
+                        "scope":question,
                     })
 
             except Exception as e:
                 final_pdf_buffer.close()
                 return Response({"msg": f"Failed to upload PDF: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
     
-'''''
-class GenerateRequirementsPDF2(APIView):
-    def post(self, request):
-        token = request.data.get('token', None)
-        if token is None:
-            raise AuthenticationFailed('No token provided')
 
-        try:
-            auth_token = Token.objects.get(key=token)
-            request.user = auth_token.user
-        except Token.DoesNotExist:
-            raise AuthenticationFailed('Invalid token')
-
-        serializer = GeneratePdfSerializer(data=request.data)
-        if serializer.is_valid():
-            question = serializer.validated_data['question']
-            user_title = serializer.validated_data.get('title')
-            user_date = serializer.validated_data.get('date')
-            user_university = serializer.validated_data.get('university')
-
-            buffer_first_page = generate_first_page_pdf(user_title, user_date, user_university)
-
-            intro_data = {
-                'name_of_project': request.data.get('name_of_project'),
-                'type_of_project': request.data.get('type_of_project'),
-                'name_of_client_company': request.data.get('name_of_client_company'),
-                'consultant_name': request.data.get('consultant_name'),
-                
-            }
-            buffer_intro = generate_intro_pdf(intro_data,user_university,question)
-
-            buffer_requirements, answer = generate_requirements_pdf(question)  # Get answer here
-            functional_titles, functional_requirements, non_functional_titles, non_functional_requirements = process_requirements(answer)
-            
-
-            # Combine PDFs
-            buffer_first_page.seek(0)
-            buffer_intro.seek(0)
-            buffer_requirements.seek(0)
-            
-            pdf_reader1 = PdfReader(buffer_first_page)
-            pdf_reader2 = PdfReader(buffer_intro)
-            pdf_reader3 = PdfReader(buffer_requirements)
-            
-            pdf_writer = PdfWriter()
-
-            for i in range(len(pdf_reader1.pages)):
-                pdf_writer.add_page(pdf_reader1.pages[i])
-            for i in range(len(pdf_reader2.pages)):
-                pdf_writer.add_page(pdf_reader2.pages[i])
-            for i in range(len(pdf_reader3.pages)):
-                pdf_writer.add_page(pdf_reader3.pages[i])
-
-            final_pdf_buffer = io.BytesIO()
-            pdf_writer.write(final_pdf_buffer)
-            pdf_content = final_pdf_buffer.getvalue()
-            final_pdf_buffer.close()
-
-            pdf_name = f"final_document_{request.user.id}.pdf"
-            pdf_file = ContentFile(pdf_content, name=pdf_name)
-            user_pdf = UserPDF.objects.create(user=request.user, pdf_file=pdf_file, name = intro_data['name_of_project'], functional_titles=functional_titles, functional_requirements=functional_requirements, non_functional_titles=non_functional_titles, non_functional_requirements=non_functional_requirements)
-
-            ##response = HttpResponse(pdf_content, content_type='application/pdf')
-            ##response['Content-Disposition'] = 'attachment; filename="final_document.pdf"'
-            pdf_url = user_pdf.pdf_file.url
-            return Response({
-                "pdf_url": pdf_url,
-                "functional_titles": functional_titles,
-                "functional_requirements": functional_requirements,
-                "non_functional_titles": non_functional_titles,
-                "non_functional_requirements": non_functional_requirements
-            })
-
-        return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
-'''
 class RetrievePDF(APIView):
     def get_object(self, pdf_id):
         try:
@@ -1400,10 +1340,11 @@ class GenerateCustomRequirementsPDF(APIView):
                 final_pdf_buffer.close()
                 
                 if 'url' in uploaded:
-                    pdf_url = uploaded['url']
+                    #pdf_url = uploaded['url']
+                    secure_url = uploaded['url'].replace('http:', 'https:')
                     
                     # Update the UserPDF object
-                    user_pdf.pdf_file = pdf_url
+                    user_pdf.pdf_file = secure_url
                     user_pdf.name = intro_data['name_of_project']
                     user_pdf.functional_titles = functional_titles
                     user_pdf.functional_requirements = functional_requirements
@@ -1416,12 +1357,12 @@ class GenerateCustomRequirementsPDF(APIView):
                     user_pdf.scope = scope
                     user_pdf.save()
                     
-                    return Response({"msg": "PDF generated and uploaded successfully", "pdf_url": pdf_url})
+                    return Response({"msg": "PDF generated and uploaded successfully", "pdf_url": secure_url})
 
             except Exception as e:
                 final_pdf_buffer.close()
                 return Response({"msg": f"Failed to upload PDF: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        print(serializer.errors)
         return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
 
 

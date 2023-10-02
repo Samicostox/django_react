@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Item, University, User, UserCSV, UserPDF, Client
 from cloudinary.utils import cloudinary_url 
 from urllib.parse import urlparse, urlunparse
+from datetime import date
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -62,12 +63,15 @@ class UserPDFSerializer2(serializers.ModelSerializer):
     consultant_name = serializers.CharField(max_length=255, default='', allow_blank=True)
     scope = serializers.CharField(max_length=255, default='', allow_blank=True)
 
+    title = serializers.CharField(max_length=255, default='', allow_blank=True)
+    date = serializers.DateTimeField(default=date.today)
+    university = serializers.PrimaryKeyRelatedField(queryset=University.objects.all())
     class Meta:
         model = UserPDF
         fields = (
             'id','user', 'pdf_file', 'name', 'created_at', 'functional_titles', 'functional_requirements', 
             'non_functional_titles', 'non_functional_requirements', 'name_of_project', 'type_of_project', 
-            'name_of_client_company', 'consultant_name','scope'
+            'name_of_client_company', 'consultant_name','scope', 'title', 'date', 'university'
         )
     def get_pdf_file(self, obj):
         parsed_url = urlparse(obj.pdf_file.url)

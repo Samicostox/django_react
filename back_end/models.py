@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from cloudinary.models import CloudinaryField
 from django.contrib.postgres.fields import ArrayField
 from django.forms import JSONField
+from datetime import date
 
 class Item(models.Model):
     name = models.CharField(max_length=100)
@@ -49,7 +50,9 @@ class UserPDF(models.Model):
     consultant_name = models.CharField(max_length=255, blank=True, default='')
     scope = models.CharField(max_length=10000, blank=True, default='')
 
-    
+    title = models.CharField(max_length=255, default = 'title')
+    date = models.DateTimeField(default=date.today)
+    university = models.ForeignKey(University, related_name='pdf', on_delete=models.CASCADE, default=1)
       
 
     def __str__(self):
