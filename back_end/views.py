@@ -623,12 +623,17 @@ def generate_intro_pdf(data,user_university,question):
 
     intro_paragraph = Paragraph(intro_paragraph_text, styles['BodyText'])
 
-    para1_text = ("The functional specification document serves the same purpose as a contract. "
-                  "The specifications presented in this document are related to the conversations done by {}. "
-                  "Following this document, the developers agree to provide the capabilities specified "
-                  "and fulfill all requests and demands of {}, who also agreed to find the product "
-                  "satisfactory if it provides the capabilities as specified."
-                  ).format(data['consultant_name'], data['name_of_client_company'])
+    para1_text = ("This document delineates the functional and non-functional requirements identified and proposed "
+              "by Innovation Studios for the project under consideration. The functional requirements "
+              "capture the essential functionalities and behaviors the system or solution is expected to achieve, "
+              "while the non-functional requirements detail the quality attributes, performance standards, and other "
+              "supplementary characteristics. Our objective is to provide a comprehensive, unambiguous, and structured "
+              "outline that ensures both parties have a shared understanding of the project's expectations and deliverables. "
+              "This document has been meticulously crafted by {}, in alignment with the requirements and expectations "
+              "of {}. We encourage our clients to review this document meticulously and engage with us for any "
+              "clarifications or further discussions."
+              ).format(data['consultant_name'], data['name_of_client_company'])
+
 
     para1 = Paragraph(para1_text, styles['BodyText'])
     
