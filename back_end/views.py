@@ -277,6 +277,10 @@ class SignUpView(APIView):
         },
     )
     def post(self, request):
+
+        passcode = request.data.get('passcode', None)
+        if passcode != '567234':
+            return Response({"msg": "Wrong Beta key"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
