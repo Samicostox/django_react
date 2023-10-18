@@ -50,6 +50,9 @@ from datetime import datetime
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import concurrent.futures
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 # Load the custom-trained NER model
 output_dir = "./my_custom_ner_model"
 nlp = spacy.load(output_dir)
@@ -1417,9 +1420,38 @@ class CreateClientView(APIView):
         serializer = ClientSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+            self.send_email_to_client(serializer.data)
             return Response({"client": serializer.data}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    def send_email_to_client(self, client_data):
+        sender_email = "sami.ribardiere@gmail.com"
+        sender_password = "hjruuwlyfhmasorg"
+        recipient_email = client_data['email']
+
+        subject = "Thank you for reaching out to us!"
+        body = f"""
+        <strong>Hi {client_data['first_name']},</strong><br><br>
+        Thank you for your interest in our services! We have received your details and will get back to you soon.<br><br>
+        Best Regards,<br>
+        Innovation Studios
+        """
+
+        message = MIMEMultipart()
+        message["From"] = sender_email
+        message["To"] = recipient_email
+        message["Subject"] = subject
+
+        message.attach(MIMEText(body, "html"))
+
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, recipient_email, message.as_string())
+            print("Email sent successfully!")
+        except Exception as e:
+            print("Failed to send email. Error:", e)
 
 class FetchAllClientsView(APIView):
     def post(self, request):
