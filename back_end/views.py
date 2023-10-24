@@ -1232,9 +1232,9 @@ def generate_requirements_pdf_from_lists(functional_titles, functional_requireme
     # Add Functional Requirements
     story.append(Paragraph("2.1 Functional Requirements", main_heading_style))
     story.append(Spacer(1, 18))  # Additional space after the subheading
-    
-    for title, requirements in zip(functional_titles, functional_requirements):
-        story.append(Paragraph(title + ":", styles['Heading2']))
+
+    for index, (title, requirements) in enumerate(zip(functional_titles, functional_requirements), 1):
+        story.append(Paragraph(f"{index}. {title}:", styles['Heading2']))
         story.append(Spacer(1, 12))  # Additional space before the content
         for req in requirements:
             story.append(Paragraph("• " + req, bullet_style))
@@ -1244,9 +1244,9 @@ def generate_requirements_pdf_from_lists(functional_titles, functional_requireme
     story.append(Spacer(1, 40))
     story.append(Paragraph("2.2 Non-Functional Requirements", main_heading_style))
     story.append(Spacer(1, 18))  # Additional space after the subheading
-    
-    for title, requirements in zip(non_functional_titles, non_functional_requirements):
-        story.append(Paragraph(title + ":", styles['Heading2']))
+
+    for index, (title, requirements) in enumerate(zip(non_functional_titles, non_functional_requirements), 1):
+        story.append(Paragraph(f"{index}. {title}:", styles['Heading2']))
         story.append(Spacer(1, 12))  # Additional space before the content
         for req in requirements:
             story.append(Paragraph("• " + req, bullet_style))
