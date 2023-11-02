@@ -57,7 +57,7 @@ from email.mime.multipart import MIMEMultipart
 output_dir = "./my_custom_ner_model"
 nlp = spacy.load(output_dir)
 
-openai.api_key = "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"
+openai.api_key = os.environ.get('OPENAI_API_KEY')
 
 
 
