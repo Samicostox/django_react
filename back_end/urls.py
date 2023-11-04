@@ -24,6 +24,7 @@ urlpatterns = [
      path('update_user/', views.UpdateUserInfo.as_view(), name='update-user-info'),
      path('generate_pdf_after/', views.GenerateCustomRequirementsPDF.as_view(), name='generate_pdf_after'),
      path('delete_csv/', views.DeleteUserCSVView.as_view(), name='delete_csv'),
+     path('delete_pdf/', views.DeleteUserPDFView.as_view(), name='delete_pdf'),
      path('forgot-password/', views.ForgotPassword.as_view(), name='forgot-password'),
      path('reset-password/', views.ResetPassword.as_view(), name='reset-password'),
      path('create_client/', views.CreateClientView.as_view(), name='create-client'),

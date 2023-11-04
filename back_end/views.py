@@ -1367,7 +1367,32 @@ class GenerateCustomRequirementsPDF(APIView):
 
 
 
+class DeleteUserPDFView(APIView):
+    def post(self, request):
+        print("Received POST request for deletion")
+        
+        # Token-based authentication
+        token = request.data.get('token', None)
+        pdf_id = request.data.get('pdf_id')
+        if token is None:
+            raise AuthenticationFailed('No token provided')
 
+        try:
+            auth_token = Token.objects.get(key=token)
+            request.user = auth_token.user
+        except Token.DoesNotExist:
+            raise AuthenticationFailed('Invalid token')
+
+        # Fetch the PDF file by ID for the authenticated user
+        try:
+            user_pdf = UserPDF.objects.get(id=pdf_id, user=request.user)
+        except UserPDF.DoesNotExist:
+            raise Http404("PDF file not found")
+
+        # Delete the PDF file
+        user_pdf.delete()
+        
+        return Response({"msg": "PDF file deleted successfully"}, status=status.HTTP_200_OK)
 
 class DeleteUserCSVView(APIView):
     def post(self, request):
