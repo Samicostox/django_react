@@ -50,11 +50,14 @@ from datetime import datetime
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import concurrent.futures
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 # Load the custom-trained NER model
 output_dir = "./my_custom_ner_model"
 nlp = spacy.load(output_dir)
 
-openai.api_key = "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"
+openai.api_key = os.environ.get('OPENAI_API_KEY')
 
 
 
@@ -277,6 +280,10 @@ class SignUpView(APIView):
         },
     )
     def post(self, request):
+
+        passcode = request.data.get('passcode', None)
+        if passcode != '567234':
+            return Response({"msg": "Wrong Beta key"}, status=status.HTTP_400_BAD_REQUEST)
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
@@ -623,12 +630,17 @@ def generate_intro_pdf(data,user_university,question):
 
     intro_paragraph = Paragraph(intro_paragraph_text, styles['BodyText'])
 
-    para1_text = ("The functional specification document serves the same purpose as a contract. "
-                  "The specifications presented in this document are related to the conversations done by {}. "
-                  "Following this document, the developers agree to provide the capabilities specified "
-                  "and fulfill all requests and demands of {}, who also agreed to find the product "
-                  "satisfactory if it provides the capabilities as specified."
-                  ).format(data['consultant_name'], data['name_of_client_company'])
+    para1_text = ("This document delineates the functional and non-functional requirements identified and proposed "
+              "by Innovation Studios for the project under consideration. The functional requirements "
+              "capture the essential functionalities and behaviors the system or solution is expected to achieve, "
+              "while the non-functional requirements detail the quality attributes, performance standards, and other "
+              "supplementary characteristics. Our objective is to provide a comprehensive, unambiguous, and structured "
+              "outline that ensures both parties have a shared understanding of the project's expectations and deliverables. "
+              "This document has been meticulously crafted by {}, in alignment with the requirements and expectations "
+              "of {}. We encourage our clients to review this document meticulously and engage with us for any "
+              "clarifications or further discussions."
+              ).format(data['consultant_name'], data['name_of_client_company'])
+
 
     para1 = Paragraph(para1_text, styles['BodyText'])
     
@@ -1220,9 +1232,9 @@ def generate_requirements_pdf_from_lists(functional_titles, functional_requireme
     # Add Functional Requirements
     story.append(Paragraph("2.1 Functional Requirements", main_heading_style))
     story.append(Spacer(1, 18))  # Additional space after the subheading
-    
-    for title, requirements in zip(functional_titles, functional_requirements):
-        story.append(Paragraph(title + ":", styles['Heading2']))
+
+    for index, (title, requirements) in enumerate(zip(functional_titles, functional_requirements), 1):
+        story.append(Paragraph(f"{index}. {title}:", styles['Heading2']))
         story.append(Spacer(1, 12))  # Additional space before the content
         for req in requirements:
             story.append(Paragraph("• " + req, bullet_style))
@@ -1232,9 +1244,9 @@ def generate_requirements_pdf_from_lists(functional_titles, functional_requireme
     story.append(Spacer(1, 40))
     story.append(Paragraph("2.2 Non-Functional Requirements", main_heading_style))
     story.append(Spacer(1, 18))  # Additional space after the subheading
-    
-    for title, requirements in zip(non_functional_titles, non_functional_requirements):
-        story.append(Paragraph(title + ":", styles['Heading2']))
+
+    for index, (title, requirements) in enumerate(zip(non_functional_titles, non_functional_requirements), 1):
+        story.append(Paragraph(f"{index}. {title}:", styles['Heading2']))
         story.append(Spacer(1, 12))  # Additional space before the content
         for req in requirements:
             story.append(Paragraph("• " + req, bullet_style))
@@ -1433,9 +1445,38 @@ class CreateClientView(APIView):
         serializer = ClientSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+            self.send_email_to_client(serializer.data)
             return Response({"client": serializer.data}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    def send_email_to_client(self, client_data):
+        sender_email = "sami.ribardiere@gmail.com"
+        sender_password = "hjruuwlyfhmasorg"
+        recipient_email = client_data['email']
+
+        subject = "Thank you for reaching out to us!"
+        body = f"""
+        <strong>Hi {client_data['first_name']},</strong><br><br>
+        Thank you for your interest in our services! We have received your details and will get back to you soon.<br><br>
+        Best Regards,<br>
+        Innovation Studios
+        """
+
+        message = MIMEMultipart()
+        message["From"] = sender_email
+        message["To"] = recipient_email
+        message["Subject"] = subject
+
+        message.attach(MIMEText(body, "html"))
+
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, recipient_email, message.as_string())
+            print("Email sent successfully!")
+        except Exception as e:
+            print("Failed to send email. Error:", e)
 
 class FetchAllClientsView(APIView):
     def post(self, request):
