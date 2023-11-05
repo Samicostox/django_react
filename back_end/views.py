@@ -1376,7 +1376,7 @@ class GenerateCustomRequirementsPDF(APIView):
                         "functional_requirements": functional_requirements,
                         "non_functional_titles": non_functional_titles,
                         "non_functional_requirements": non_functional_requirements,
-                        "name":intro_data['name_of_project'],
+                        "name_of_project":intro_data['name_of_project'],
                         "id":user_pdf.pk,
                         "title": user_title,
                         "date": user_date,
@@ -1384,6 +1384,7 @@ class GenerateCustomRequirementsPDF(APIView):
                         "name_of_client_company": intro_data['name_of_client_company'],
                         "consultant_name": intro_data['consultant_name'],
                         "scope":scope,
+                        "university":intro_data['university']
                     })
 
             except Exception as e:
