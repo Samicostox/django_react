@@ -1384,7 +1384,7 @@ class GenerateCustomRequirementsPDF(APIView):
                         "name_of_client_company": intro_data['name_of_client_company'],
                         "consultant_name": intro_data['consultant_name'],
                         "scope":scope,
-                        "university":intro_data['university']
+                        "university": user_university
                     })
 
             except Exception as e:
