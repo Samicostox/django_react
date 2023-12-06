@@ -1370,7 +1370,22 @@ class GenerateCustomRequirementsPDF(APIView):
                     user_pdf.save()
                     serializer = UserPDFSerializer2(user_pdf, many=False)
                     
-                    return Response({"msg": "PDF generated and uploaded successfully", "pdf": serializer.data})
+                    return Response({
+                        "pdf_file": secure_url,
+                        "functional_titles": functional_titles,
+                        "functional_requirements": functional_requirements,
+                        "non_functional_titles": non_functional_titles,
+                        "non_functional_requirements": non_functional_requirements,
+                        "name_of_project":intro_data['name_of_project'],
+                        "id":user_pdf.pk,
+                        "title": user_title,
+                        "date": user_date,
+                        "type_of_project": intro_data['type_of_project'],
+                        "name_of_client_company": intro_data['name_of_client_company'],
+                        "consultant_name": intro_data['consultant_name'],
+                        "scope":scope,
+                        "university": user_university
+                    })
 
             except Exception as e:
                 final_pdf_buffer.close()
