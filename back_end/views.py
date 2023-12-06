@@ -1517,3 +1517,86 @@ class FetchAllUsersView(APIView):
 
 
 
+import json
+import openai
+import numpy as np
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from sklearn.metrics.pairwise import cosine_similarity
+import csv
+
+# Function to get embeddings
+def get_embeddings(text):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+    # Replace with your OpenAI API key
+
+    response = openai.Embedding.create(
+        input=text,
+        engine="text-embedding-ada-002"
+    )
+    return [item['embedding'] for item in response['data']][0]
+
+# Function to find most similar documents
+def find_most_similar_documents(embedding, documents_embeddings, top_n=5):
+    similarities = cosine_similarity([embedding], documents_embeddings)[0]
+    most_similar_indices = np.argsort(similarities)[-top_n:]
+    return most_similar_indices[::-1]
+
+# Function to read embeddings and sentences from CSV
+def read_embeddings_from_csv(filename="docs_embeddings.csv"):
+    sentences = []
+    embeddings = []
+
+    with open(filename, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip header row
+        for row in reader:
+            sentence, embedding_str = row
+            embedding = np.fromstring(embedding_str, sep=',')
+            sentences.append(sentence)
+            embeddings.append(embedding)
+
+    return sentences, np.array(embeddings)
+
+# Function to get response from GPT-4 with additional context
+def get_gpt4_response(user_input, relevant_docs):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')  # Replace with your OpenAI API key
+
+    context = " ".join(relevant_docs)
+    prompt = f"{context}\n\n{user_input}"
+    response = openai.ChatCompletion.create(
+        model="gpt-4", 
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message['content']
+
+# Main logic
+def main(user_input):
+    documents, document_vectors = read_embeddings_from_csv("./back_end/docs_embeddings.csv")
+    user_embedding = get_embeddings(user_input)
+    similar_doc_indices = find_most_similar_documents(user_embedding, document_vectors)
+
+    relevant_docs = [documents[i] for i in similar_doc_indices]
+    response = get_gpt4_response(user_input, relevant_docs)
+    return response
+
+
+# Add your helper functions here (get_embeddings, find_most_similar_documents, etc.)
+
+class ChatBotView(APIView):
+    def post(self, request):
+        print("Received POST request for chatbot interaction")
+
+        # Extract user input from POST request
+        user_input = request.data.get('user_input')
+        if not user_input:
+            return Response({"error": "No user input provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Main logic to process the user input and get response
+            response = main(user_input)
+            return Response({"response": response}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Define main() and other functions here

@@ -30,5 +30,6 @@ urlpatterns = [
      path('create_client/', views.CreateClientView.as_view(), name='create-client'),
      path('fetch_all_clients/', views.FetchAllClientsView.as_view(), name='fetch-all-clients'),
      path('fetch_all_users/', views.FetchAllUsersView.as_view(), name='fetch-all-users'),
+     path('chatbot/', views.ChatBotView.as_view(), name='chatbot'),
     
 ]
