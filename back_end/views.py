@@ -1573,21 +1573,37 @@ def read_embeddings_from_csv(filename="docs_embeddings.csv"):
 
     return sentences, np.array(embeddings)
 
-# Function to get response from GPT-4 with additional context
 def get_gpt4_response(user_input, relevant_docs):
-    openai.api_key = os.environ.get('OPENAI_API_KEY')  # Replace with your OpenAI API key
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+# Use environment variable for API key
 
+    # Combine relevant documents to form the context
     context = " ".join(relevant_docs)
-    prompt = f"{context}\n\n{user_input}"
+    
+    # Add instructions for GPT-4 in the prompt
+    instructions = (
+        "If the question is not clear, reply with 'I am not sure to understand the question.' "
+        
+    )
+
+    # Format the prompt with context, instructions, and user input
+    print(context)
+    prompt = f"Context: {context}\nInstructions: {instructions}\nQuestion: {user_input}"
+    
     response = openai.ChatCompletion.create(
-        model="gpt-4", 
+        model="gpt-4",
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message['content']
+
+    gpt_response = response.choices[0].message['content']
+
+    # Check if the response contains a code snippet
+    
+    return gpt_response
 
 # Main logic
 def main(user_input):
-    documents, document_vectors = read_embeddings_from_csv("./back_end/docs_embeddings.csv")
+    documents, document_vectors = read_embeddings_from_csv("./back_end/docs_embeddings2.csv")
     user_embedding = get_embeddings(user_input)
     similar_doc_indices = find_most_similar_documents(user_embedding, document_vectors)
 
