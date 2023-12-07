@@ -1542,8 +1542,10 @@ import csv
 
 # Function to get embeddings
 def get_embeddings(text):
+
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     # Replace with your OpenAI API key
+    
 
     response = openai.Embedding.create(
         input=text,
@@ -1573,23 +1575,33 @@ def read_embeddings_from_csv(filename="docs_embeddings.csv"):
 
     return sentences, np.array(embeddings)
 
-def get_gpt4_response(user_input, relevant_docs):
+def get_gpt4_response(user_input, relevant_docs, conversation):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 # Use environment variable for API key
 
     # Combine relevant documents to form the context
     context = " ".join(relevant_docs)
-    
-    # Add instructions for GPT-4 in the prompt
-    instructions = (
-        "If the question is not clear, reply with 'I am not sure to understand the question.' "
-        "Use the context to help you reply"
-        
-    )
 
-    # Format the prompt with context, instructions, and user input
-    print(context)
-    prompt = f"Context: {context}\nInstructions: {instructions}\nQuestion: {user_input}"
+    if conversation:
+        instructions = (
+        "If the question is not clear, reply with 'I am not sure to understand the question.' "
+        "Use the context and the conversation to help you reply"
+        ""  
+    )
+        # Format the prompt with context, instructions, and user input
+        print(context)
+        prompt = f"Context: {context}\nInstructions: {instructions}\nConvenversation: {conversation}\nQuestion: {user_input}"
+    
+    else:
+        # Add instructions for GPT-4 in the prompt
+        instructions = (
+            "If the question is not clear, reply with 'I am not sure to understand the question.' "
+            "Use the context to help you reply"        
+        )
+
+        # Format the prompt with context, instructions, and user input
+        print(context)
+        prompt = f"Context: {context}\nInstructions: {instructions}\nQuestion: {user_input}"
     
     response = openai.ChatCompletion.create(
         model="gpt-4",
@@ -1603,13 +1615,18 @@ def get_gpt4_response(user_input, relevant_docs):
     return gpt_response
 
 # Main logic
-def main(user_input):
+def main(user_input, conversation):
+    
     documents, document_vectors = read_embeddings_from_csv("./back_end/docs_embeddings3.csv")
+    
     user_embedding = get_embeddings(user_input)
+    
     similar_doc_indices = find_most_similar_documents(user_embedding, document_vectors)
+   
 
     relevant_docs = [documents[i] for i in similar_doc_indices]
-    response = get_gpt4_response(user_input, relevant_docs)
+    
+    response = get_gpt4_response(user_input, relevant_docs, conversation)
     return response
 
 
@@ -1621,12 +1638,14 @@ class ChatBotView(APIView):
 
         # Extract user input from POST request
         user_input = request.data.get('user_input')
+        conversation = request.data.get('conversation')
+        print(conversation)
         if not user_input:
             return Response({"error": "No user input provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             # Main logic to process the user input and get response
-            response = main(user_input)
+            response = main(user_input, conversation)
             return Response({"response": response}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
