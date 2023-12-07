@@ -1583,6 +1583,7 @@ def get_gpt4_response(user_input, relevant_docs):
     # Add instructions for GPT-4 in the prompt
     instructions = (
         "If the question is not clear, reply with 'I am not sure to understand the question.' "
+        "Use the context to help you reply"
         
     )
 
@@ -1603,7 +1604,7 @@ def get_gpt4_response(user_input, relevant_docs):
 
 # Main logic
 def main(user_input):
-    documents, document_vectors = read_embeddings_from_csv("./back_end/docs_embeddings2.csv")
+    documents, document_vectors = read_embeddings_from_csv("./back_end/docs_embeddings3.csv")
     user_embedding = get_embeddings(user_input)
     similar_doc_indices = find_most_similar_documents(user_embedding, document_vectors)
 
